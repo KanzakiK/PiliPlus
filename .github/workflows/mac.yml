@@ -18,6 +18,13 @@ jobs:
           flutter-version-file: pubspec.yaml
           cache: true
 
+      - name: Reset patched sources
+        run: |
+          SDK="$(dirname "$(dirname "$(command -v flutter)")")"
+          git -C "$SDK" checkout -- packages/flutter || true
+          find "$HOME/.pub-cache/hosted/pub.dev" -maxdepth 1 -name 'material_ui-*' -exec rm -rf {} + || true
+          find "$HOME/.pub-cache/hosted/pub.dev" -maxdepth 1 -name 'cupertino_ui-*' -exec rm -rf {} + || true
+
       - name: Apply Patch
         shell: pwsh
         run: lib/scripts/patch.ps1 macOS
@@ -46,6 +53,13 @@ jobs:
       - name: Set and Extract version
         shell: pwsh
         run: lib/scripts/build.ps1
+
+      - name: Reset patched sources
+        run: |
+          SDK="$(dirname "$(dirname "$(command -v flutter)")")"
+          git -C "$SDK" checkout -- packages/flutter || true
+          find "$HOME/.pub-cache/hosted/pub.dev" -maxdepth 1 -name 'material_ui-*' -exec rm -rf {} + || true
+          find "$HOME/.pub-cache/hosted/pub.dev" -maxdepth 1 -name 'cupertino_ui-*' -exec rm -rf {} + || true
 
       - name: Apply Patch
         shell: pwsh
