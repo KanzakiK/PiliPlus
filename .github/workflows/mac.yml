@@ -4,6 +4,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  analyze:
+    name: Analyze Dart (no build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 macOS
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings
+
   build-mac-app:
     name: Build Mac
     runs-on: macos-26
