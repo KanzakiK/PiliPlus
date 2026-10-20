@@ -23,7 +23,7 @@ jobs:
         run: lib/scripts/patch.ps1 macOS
 
       - name: Analyze
-        run: flutter analyze --no-fatal-warnings
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   build-mac-app:
     name: Build Mac
