@@ -1,18 +1,11 @@
-name: Build for Mac
+name: Build Mac (custom)
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        description: "tag"
-        required: false
-        default: ""
-        type: string
   workflow_dispatch:
 
 jobs:
   build-mac-app:
-    name: Release Mac
+    name: Build Mac
     runs-on: macos-26
     steps:
       - name: Checkout code
@@ -25,6 +18,7 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
+          cache: true
 
       - name: Set and Extract version
         shell: pwsh
@@ -37,7 +31,10 @@ jobs:
       - name: Build Mac
         run: flutter build macos --release --dart-define-from-file=pili_release.json --no-pub
 
-      - name: Prepare Upload
+      - name: Check architectures
+        run: lipo -info build/macos/Build/Products/Release/PiliPlus.app/Contents/MacOS/PiliPlus
+
+      - name: Prepare DMG
         run: |
           npm install --global create-dmg
           create-dmg build/macos/Build/Products/Release/PiliPlus.app || true
@@ -46,18 +43,19 @@ jobs:
       - name: Rename DMG
         run: mv PiliPlus*.dmg PiliPlus_macos_${{ env.version }}.dmg
 
-      - name: Release
-        if: ${{ github.event.inputs.tag != '' }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
-          files: |
-            PiliPlus_macos_*.dmg
+      - name: Pack app bundle
+        run: ditto -c -k --keepParent build/macos/Build/Products/Release/PiliPlus.app PiliPlus_macos_app.zip
 
-      - name: Upload macos release
+      - name: Upload DMG
         uses: actions/upload-artifact@v7
         with:
           archive: false
-          name: macOS-release
+          name: macOS-dmg
           path: PiliPlus_macos_*.dmg
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          name: macOS-app
+          path: PiliPlus_macos_app.zip
