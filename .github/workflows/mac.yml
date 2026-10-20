@@ -27,7 +27,9 @@ jobs:
 
   build-mac-app:
     name: Build Mac
-    runs-on: macos-26
+    # x64 runner: matches the target Intel Mac and has a smaller queue
+    runs-on: macos-26-intel
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
