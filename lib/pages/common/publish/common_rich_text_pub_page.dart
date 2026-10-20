@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File, HttpException;
 
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
@@ -14,6 +15,7 @@ import 'package:PiliPlus/models_new/emote/emote.dart' as e;
 import 'package:PiliPlus/models_new/live/live_emote/emoticon.dart';
 import 'package:PiliPlus/pages/common/publish/common_publish_page.dart';
 import 'package:PiliPlus/pages/dynamics_mention/view.dart';
+import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/extension/file_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -22,17 +24,17 @@ import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart'
+    hide CacheManager;
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract class CommonRichTextPubPage
     extends CommonPublishPage<List<RichTextItem>> {
@@ -111,27 +113,23 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       clipBehavior: Clip.none,
       children: [
         GestureDetector(
-          onTap: () async {
-            controller.keepChatPanel();
-            await PageUtils.imageView(
-              imgList: imageList
-                  .map(
-                    (img) => switch (img) {
-                      FilePicModel e => SourceModel(
-                        url: e.path,
-                        sourceType: .fileImage,
-                      ),
-                      OpusPicModel e => SourceModel(
-                        url: e.url!,
-                        sourceType: .networkImage,
-                      ),
-                    },
-                  )
-                  .toList(),
-              initialPage: index,
-            );
-            controller.restoreChatPanel();
-          },
+          onTap: () => PageUtils.imageView(
+            imgList: imageList
+                .map(
+                  (img) => switch (img) {
+                    FilePicModel e => SourceModel(
+                      url: e.path,
+                      sourceType: .fileImage,
+                    ),
+                    OpusPicModel e => SourceModel(
+                      url: e.url!,
+                      sourceType: .networkImage,
+                    ),
+                  },
+                )
+                .toList(),
+            initialPage: index,
+          ),
           onLongPress: () {
             Feedback.forLongPress(context);
             onClear();
@@ -195,11 +193,10 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         path = e.path;
       case OpusPicModel e:
         SmartDialog.showLoading();
-        final file = (await DefaultCacheManager().getSingleFile(
+        path = (await CacheManager.manager.getSingleFile(
           e.url.http2https,
-        ));
+        )).path;
         await SmartDialog.dismiss();
-        path = file.path;
     }
     if (!mounted || path.isEmpty) return;
     late final colorScheme = ColorScheme.of(context);
@@ -223,40 +220,43 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     }
   }
 
-  void onPickImage([VoidCallback? callback]) {
+  void onPickImageThrottle([VoidCallback? callback]) {
     EasyThrottle.throttle(
       'imagePicker',
       const Duration(milliseconds: 500),
-      () async {
-        try {
-          List<XFile> pickedFiles = await imagePicker.pickMultiImage(
-            limit: limit,
-            imageQuality: 100,
-          );
-          if (pickedFiles.isNotEmpty) {
-            for (int i = 0; i < pickedFiles.length; i++) {
-              if (imageList.length == limit) {
-                SmartDialog.showToast('最多选择$limit张图片');
-                break;
-              } else {
-                imageList.add(FilePicModel(path: pickedFiles[i].path));
-              }
-            }
-            callback?.call();
-          }
-        } catch (e) {
-          SmartDialog.showToast(e.toString());
-        }
-      },
+      () => _onPickImage(callback),
     );
+  }
+
+  Future<void> _onPickImage([VoidCallback? callback]) async {
+    try {
+      final pickedFiles = await imagePicker.pickMultiImage(
+        limit: limit,
+        imageQuality: 100,
+        requestFullMetadata: false,
+      );
+      if (pickedFiles.isNotEmpty) {
+        for (int i = 0; i < pickedFiles.length; i++) {
+          if (imageList.length == limit) {
+            SmartDialog.showToast('最多选择$limit张图片');
+            break;
+          } else {
+            imageList.add(FilePicModel(path: pickedFiles[i].path));
+          }
+        }
+        callback?.call();
+      }
+    } catch (e) {
+      SmartDialog.showToast(e.toString());
+    }
   }
 
   void onChooseEmote(dynamic emote, double? width, double? height) {
     if (emote is e.Emote) {
       final isTextEmote = width == null;
       onInsertText(
-        isTextEmote ? emote.text! : '\uFFFC',
-        RichTextType.emoji,
+        isTextEmote ? emote.text! : Style.placeHolder,
+        .emoji,
         rawText: emote.text!,
         emote: isTextEmote
             ? null
@@ -268,8 +268,8 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       );
     } else if (emote is Emoticon) {
       onInsertText(
-        '\uFFFC',
-        RichTextType.emoji,
+        Style.placeHolder,
+        .emoji,
         rawText: emote.emoji!,
         emote: Emote(
           url: emote.url!,
@@ -285,13 +285,13 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     final list = <Map<String, dynamic>>[];
     for (final e in editController.items) {
       switch (e.type) {
-        case RichTextType.text || RichTextType.composing || RichTextType.common:
+        case .text || .composing || .common || .latex:
           list.add({
             "raw_text": e.text,
             "type": 1,
             "biz_id": "",
           });
-        case RichTextType.at:
+        case .at:
           list
             ..add({
               "raw_text": '@${e.rawText}',
@@ -303,13 +303,13 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
               "type": 1,
               "biz_id": "",
             });
-        case RichTextType.emoji:
+        case .emoji:
           list.add({
             "raw_text": e.rawText,
             "type": 9,
             "biz_id": "",
           });
-        case RichTextType.vote:
+        case .vote:
           list
             ..add({
               "raw_text": e.rawText,
@@ -327,31 +327,31 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   }
 
   late double _mentionOffset = 0;
+  MentionItem? get topMentionItem => null;
   Future<void>? onMention([bool fromClick = false]) async {
-    controller.keepChatPanel();
     final res = await DynMentionPanel.onDynMention(
       context,
       offset: _mentionOffset,
       onCachePos: (offset) => _mentionOffset = offset,
+      top: topMentionItem,
     );
     if (res != null) {
       if (res is MentionItem) {
         _onInsertUser(res, fromClick);
       } else if (res is Set<MentionItem>) {
         for (final e in res) {
-          e.checked = false;
-          _onInsertUser(e, fromClick);
+          _onInsertUser(e..checked = false, fromClick);
+          fromClick = true;
         }
         res.clear();
       }
     }
-    controller.restoreChatPanel();
   }
 
   void _onInsertUser(MentionItem e, bool fromClick) {
     onInsertText(
       '@${e.name} ',
-      RichTextType.at,
+      .at,
       rawText: e.name,
       id: e.uid,
       fromClick: fromClick,
@@ -379,7 +379,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       TextEditingDelta delta;
 
       if (selection.isCollapsed) {
-        if (type == RichTextType.at && fromClick == false) {
+        if (type == .at && fromClick == false) {
           delta = RichTextEditingDeltaReplacement(
             oldText: oldValue.text,
             replacementText: text,
@@ -469,13 +469,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       final isEmoji = panelType.value == PanelType.emoji;
       return ToolbarIconButton(
         tooltip: isEmoji ? '输入' : '表情',
-        onPressed: () {
-          if (isEmoji) {
-            updatePanelType(PanelType.keyboard);
-          } else {
-            updatePanelType(PanelType.emoji);
-          }
-        },
+        onPressed: () => updatePanelType(isEmoji ? .keyboard : .emoji),
         icon: isEmoji
             ? const Icon(Icons.keyboard, size: 22)
             : const Icon(Icons.emoji_emotions, size: 22),
@@ -496,13 +490,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       final isMore = panelType.value == PanelType.more;
       return ToolbarIconButton(
         tooltip: isMore ? '输入' : '更多',
-        onPressed: () {
-          if (isMore) {
-            updatePanelType(PanelType.keyboard);
-          } else {
-            updatePanelType(PanelType.more);
-          }
-        },
+        onPressed: () => updatePanelType(isMore ? .keyboard : .more),
         icon: isMore
             ? const Icon(Icons.keyboard, size: 22)
             : const Icon(Icons.add_circle_outline, size: 22),
@@ -550,6 +538,6 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         return;
       }
     }
-    onCustomPublish(pictures: pictures);
+    return onCustomPublish(pictures: pictures);
   }
 }

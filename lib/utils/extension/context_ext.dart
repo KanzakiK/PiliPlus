@@ -1,5 +1,4 @@
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// from Getx
 extension ContextExtensions on BuildContext {
@@ -71,11 +70,5 @@ extension ContextExtensions on BuildContext {
   bool get isLargeTablet => (mediaQueryShortestSide >= 720);
 
   /// True if the current device is Tablet
-  bool get isTablet => isSmallTablet || isLargeTablet;
-
-  String get platformName => PlatformUtils.isDesktop
-      ? 'desktop'
-      : isTablet
-      ? 'pad'
-      : 'phone';
+  bool get isTablet => isSmallTablet;
 }

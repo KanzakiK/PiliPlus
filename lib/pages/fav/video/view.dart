@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
@@ -7,8 +6,8 @@ import 'package:PiliPlus/pages/fav/video/controller.dart';
 import 'package:PiliPlus/pages/fav/video/widgets/item.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavVideoPage extends StatefulWidget {
   const FavVideoPage({super.key});
@@ -29,7 +28,7 @@ class _FavVideoPageState extends State<FavVideoPage>
     super.build(context);
     return refreshIndicator(
       onRefresh: _favController.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         controller: _favController.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

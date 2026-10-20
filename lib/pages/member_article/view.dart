@@ -1,13 +1,12 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/space/space_article/item.dart';
 import 'package:PiliPlus/pages/member_article/controller.dart';
 import 'package:PiliPlus/pages/member_article/widget/item.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberArticle extends StatefulWidget {
   const MemberArticle({
@@ -43,8 +42,9 @@ class _MemberArticleState extends State<MemberArticle>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      isClampingScrollPhysics: true,
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -70,9 +70,7 @@ class _MemberArticleState extends State<MemberArticle>
                   if (index == response.length - 1) {
                     _controller.onLoadMore();
                   }
-                  return MemberArticleItem(
-                    item: response[index],
-                  );
+                  return MemberArticleItem(response[index]);
                 },
                 itemCount: response.length,
               )

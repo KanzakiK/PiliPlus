@@ -1,12 +1,12 @@
 import 'dart:math';
 
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/space_setting/privacy.dart';
 import 'package:PiliPlus/pages/space_setting/controller.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SpaceSettingPage extends StatefulWidget {
   const SpaceSettingPage({super.key});
@@ -21,8 +21,7 @@ class _SpaceSettingPageState extends State<SpaceSettingPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(title: const Text('空间设置')),
       body: Obx(() => _buildBody(theme, _controller.loadingState.value)),
     );
@@ -55,7 +54,7 @@ class _SpaceSettingPageState extends State<SpaceSettingPage> {
                       color: theme.colorScheme.outline.withValues(alpha: 0.1),
                     ),
                   );
-                  return customScrollView(
+                  return CustomScrollView(
                     slivers: [
                       dividerL,
                       SliverList.separated(

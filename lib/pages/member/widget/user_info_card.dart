@@ -3,8 +3,12 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/avatars.dart';
 import 'package:PiliPlus/common/widgets/image_viewer/hero.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show tabBarScrollPhysics;
+import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
+import 'package:PiliPlus/http/live.dart';
+import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/models/common/member/user_info_type.dart';
 import 'package:PiliPlus/models/model_owner.dart';
@@ -24,6 +28,9 @@ import 'package:PiliPlus/pages/member_guard/view.dart';
 import 'package:PiliPlus/pages/member_upower_rank/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
+import 'package:PiliPlus/utils/bili_colors.dart';
+import 'package:PiliPlus/utils/bili_utils.dart';
+import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -33,11 +40,11 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class UserInfoCard extends StatelessWidget {
   const UserInfoCard({
@@ -55,6 +62,7 @@ class UserInfoCard extends StatelessWidget {
     required this.chargeCount,
     required this.guards,
     required this.guardCount,
+    required this.hasMedal,
   });
 
   final bool isOwner;
@@ -70,6 +78,7 @@ class UserInfoCard extends StatelessWidget {
   final Object? chargeCount;
   final List<Owner>? guards;
   final Object? guardCount;
+  final bool hasMedal;
 
   @override
   Widget build(BuildContext context) {
@@ -165,8 +174,8 @@ class UserInfoCard extends StatelessWidget {
       Color? nameColor;
       Color? backgroundColor;
       try {
-        nameColor = Utils.parseColor(detailV2.medalColorName!);
-        backgroundColor = Utils.parseColor(detailV2.medalColor!);
+        nameColor = ColourUtils.parseColor(detailV2.medalColorName!);
+        backgroundColor = ColourUtils.parseColor(detailV2.medalColor!);
       } catch (e, s) {
         if (kDebugMode) {
           Utils.reportError(e, s);
@@ -215,14 +224,10 @@ class UserInfoCard extends StatelessWidget {
               ),
             ),
           ),
-          Image.asset(
-            Utils.levelName(
-              card.levelInfo!.currentLevel!,
-              isSeniorMember: card.levelInfo?.identity == 2,
-            ),
+          BiliUtils.levelPicture(
+            card.levelInfo!.currentLevel!,
+            isSeniorMember: card.levelInfo?.identity == 2,
             height: 11,
-            cacheHeight: 11.cacheSize(context),
-            semanticLabel: '等级${card.levelInfo?.currentLevel}',
           ),
           if (card.vip?.status == 1)
             Container(
@@ -280,13 +285,17 @@ class UserInfoCard extends StatelessWidget {
                     shape: .circle,
                     color: colorScheme.surface,
                   ),
-                  child: Icon(
-                    Icons.offline_bolt,
-                    color: card.officialVerify?.type == 0
-                        ? const Color(0xFFFFCC00)
-                        : Colors.lightBlueAccent,
-                    size: 18,
-                  ),
+                  child: card.officialVerify?.type == 0
+                      ? const Icon(
+                          Icons.offline_bolt,
+                          color: BiliColors.yellow,
+                          size: 18,
+                        )
+                      : const Icon(
+                          Icons.offline_bolt,
+                          color: Colors.lightBlueAccent,
+                          size: 18,
+                        ),
                 ),
               ),
               const TextSpan(text: ' '),
@@ -308,7 +317,7 @@ class UserInfoCard extends StatelessWidget {
   Widget _buildSign() {
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
-      child: SelectableText(
+      child: SelectionText(
         card.sign!.trim().replaceAll(RegExp(r'\n{2,}'), '\n'),
         style: const TextStyle(fontSize: 14),
       ),
@@ -316,6 +325,7 @@ class UserInfoCard extends StatelessWidget {
   }
 
   Widget _buildExtraInfo(ColorScheme colorScheme) {
+    final style = TextStyle(fontSize: 12, color: colorScheme.outline);
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
       child: Wrap(
@@ -325,20 +335,16 @@ class UserInfoCard extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: () => Utils.copyText(card.mid.toString()),
-            child: Text(
-              'UID: ${card.mid}',
-              style: TextStyle(fontSize: 12, color: colorScheme.outline),
-            ),
+            child: Text('UID: ${card.mid}', style: style),
           ),
           ...?card.spaceTag?.map(
             (item) {
               final hasUri = item.uri?.isNotEmpty ?? false;
               final child = Text(
                 item.title ?? '',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: hasUri ? colorScheme.secondary : colorScheme.outline,
-                ),
+                style: hasUri
+                    ? TextStyle(fontSize: 12, color: colorScheme.secondary)
+                    : style,
               );
               if (hasUri) {
                 return GestureDetector(
@@ -349,6 +355,34 @@ class UserInfoCard extends StatelessWidget {
               return child;
             },
           ),
+          if (hasMedal)
+            Builder(
+              builder: (context) {
+                final medalName = card.medalName;
+                final hasMedalName = medalName != null;
+                return GestureDetector(
+                  onTap: hasMedalName
+                      ? () => Utils.copyText(medalName)
+                      : () async {
+                          final res = await LiveHttp.liveMedalName(card.mid!);
+                          if (res case Success(:final response)) {
+                            if (response != null) {
+                              card.medalName = response;
+                              if (context.mounted) {
+                                (context as Element).markNeedsBuild();
+                              }
+                            }
+                          } else {
+                            res.toast();
+                          }
+                        },
+                  child: Text(
+                    '粉丝勋章${hasMedalName ? ': $medalName' : ''}',
+                    style: style,
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -391,6 +425,7 @@ class UserInfoCard extends StatelessWidget {
   }
 
   Column _buildRight(ColorScheme colorScheme) => Column(
+    spacing: 5,
     mainAxisSize: .min,
     children: [
       Row(
@@ -414,7 +449,6 @@ class UserInfoCard extends StatelessWidget {
             .skip(1)
             .toList(),
       ),
-      const SizedBox(height: 5),
       Row(
         spacing: 10,
         mainAxisSize: .min,
@@ -437,33 +471,46 @@ class UserInfoCard extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.mail_outline, size: 21),
-              style: IconButton.styleFrom(
-                side: BorderSide(
-                  width: 1.0,
-                  color: colorScheme.outline.withValues(alpha: 0.3),
+              style: ButtonStyle(
+                side: WidgetStatePropertyAll(
+                  BorderSide(
+                    width: 1.0,
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
                 ),
-                padding: .zero,
-                tapTargetSize: .padded,
+                padding: const WidgetStatePropertyAll(.zero),
+                tapTargetSize: .shrinkWrap,
                 visualDensity: .compact,
               ),
             ),
           Expanded(
             child: FilledButton.tonal(
-              onPressed: onFollow,
-              style: FilledButton.styleFrom(
+              onPressed: !isOwner && relation == -1 ? null : onFollow,
+              style: ButtonStyle(
+                padding: const WidgetStatePropertyAll(.zero),
                 backgroundColor: relation != 0
-                    ? colorScheme.onInverseSurface
+                    ? WidgetStatePropertyAll(colorScheme.onInverseSurface)
                     : null,
                 tapTargetSize: .padded,
                 visualDensity: const VisualDensity(vertical: -1.8),
               ),
               child: Text.rich(
-                style: TextStyle(
-                  color: relation != 0 ? colorScheme.outline : null,
-                ),
+                style: relation != 0
+                    ? TextStyle(color: colorScheme.outline)
+                    : null,
                 TextSpan(
                   children: [
-                    if (relation != 0 && relation != 128) ...[
+                    if (relation == -1) ...[
+                      WidgetSpan(
+                        alignment: .middle,
+                        child: Icon(
+                          Icons.block,
+                          size: 16,
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                      const TextSpan(text: ' '),
+                    ] else if (relation != 0 && relation != 128) ...[
                       WidgetSpan(
                         alignment: .middle,
                         child: Icon(
@@ -478,7 +525,7 @@ class UserInfoCard extends StatelessWidget {
                       text: isOwner
                           ? '编辑资料'
                           : switch (relation) {
-                              0 => '关注',
+                              0 || -1 => '关注',
                               1 => '悄悄关注',
                               2 => '已关注',
                               // 3 => '回关',
@@ -575,7 +622,8 @@ class UserInfoCard extends StatelessWidget {
   ) {
     if (imgUrls.length == 1) {
       final img = imgUrls.first;
-      return _buildHeader(
+      final title = img.title;
+      Widget child = _buildHeader(
         context,
         isLight,
         width,
@@ -584,6 +632,20 @@ class UserInfoCard extends StatelessWidget {
         fullCover: img.fullCover,
         alignment: Alignment(0.0, img.dy),
       );
+      if (title != null) {
+        return Stack(
+          clipBehavior: .none,
+          children: [
+            child,
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: _headerWrapper(_headerTitle(title)),
+            ),
+          ],
+        );
+      }
+      return child;
     }
     final controller = headerControllerBuilder();
     final memCacheWidth = width.cacheSize(context);
@@ -595,6 +657,7 @@ class UserInfoCard extends StatelessWidget {
         onPageChanged: controller.jumpToPage,
       ),
       child: Stack(
+        clipBehavior: .none,
         children: [
           SizedBox(
             width: .infinity,
@@ -602,13 +665,14 @@ class UserInfoCard extends StatelessWidget {
             child: PageView.builder(
               controller: controller,
               itemCount: imgUrls.length,
-              physics: clampingScrollPhysics,
+              physics: tabBarScrollPhysics,
               itemBuilder: (context, index) {
                 final img = imgUrls[index];
                 return fromHero(
                   tag: img.fullCover,
                   child: CachedNetworkImage(
                     fit: .cover,
+                    gaplessPlayback: true,
                     alignment: Alignment(0.0, img.dy),
                     height: kHeaderHeight,
                     width: width,
@@ -626,30 +690,10 @@ class UserInfoCard extends StatelessWidget {
           Positioned(
             right: 0,
             bottom: 3.5,
-            child: IgnorePointer(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 125),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: .centerLeft,
-                      end: .centerRight,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black12,
-                        Colors.black38,
-                        Colors.black45,
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const .only(left: 15, right: 5, bottom: 2),
-                    child: HeaderTitle(
-                      images: imgUrls,
-                      pageController: controller,
-                    ),
-                  ),
-                ),
+            child: _headerWrapper(
+              HeaderTitle(
+                images: imgUrls,
+                pageController: controller,
               ),
             ),
           ),
@@ -686,6 +730,7 @@ class UserInfoCard extends StatelessWidget {
           fit: .cover,
           alignment: alignment,
           height: kHeaderHeight,
+          gaplessPlayback: true,
           width: width,
           memCacheWidth: width.cacheSize(context),
           imageUrl: ImageUtils.thumbnailUrl(imgUrl),
@@ -714,7 +759,7 @@ class UserInfoCard extends StatelessWidget {
     bool isLight,
     SpacePrInfo prInfo,
   ) {
-    final textColor = Utils.parseColor(
+    final textColor = ColourUtils.parseColor(
       isLight ? prInfo.textColor : prInfo.textColorNight,
     );
     String? icon = !isLight && prInfo.iconNight?.isNotEmpty == true
@@ -726,7 +771,9 @@ class UserInfoCard extends StatelessWidget {
     Widget child = Container(
       margin: const .only(top: 8),
       padding: const .symmetric(horizontal: 16, vertical: 10),
-      color: Utils.parseColor(isLight ? prInfo.bgColor : prInfo.bgColorNight),
+      color: ColourUtils.parseColor(
+        isLight ? prInfo.bgColor : prInfo.bgColorNight,
+      ),
       child: Row(
         children: [
           if (icon != null) ...[
@@ -1038,35 +1085,66 @@ class _HeaderTitleState extends State<HeaderTitle> {
   Widget build(BuildContext context) {
     final title = widget.images[_index].title;
     if (title == null) return const SizedBox.shrink();
-    try {
-      return Column(
-        crossAxisAlignment: .end,
-        children: [
-          Text(
-            title.title!,
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: const TextStyle(fontSize: 12, color: Colors.white),
-          ),
+    return _headerTitle(title);
+  }
+}
+
+Widget _headerTitle(TopTitle title) {
+  try {
+    return Column(
+      crossAxisAlignment: .end,
+      children: [
+        Text(
+          title.title!,
+          maxLines: 1,
+          overflow: .ellipsis,
+          style: const TextStyle(fontSize: 12, color: Colors.white),
+        ),
+        if (title.subTitle?.isNotEmpty ?? false)
           Text(
             title.subTitle!,
             style: TextStyle(
               fontSize: 12,
               fontFamily: Assets.digitalNum,
               color: title.subTitleColorFormat?.colors?.isNotEmpty == true
-                  ? Utils.parseMedalColor(
+                  ? ColourUtils.parseMedalColor(
                       title.subTitleColorFormat!.colors!.last,
                     )
                   : Colors.white,
             ),
           ),
-        ],
-      );
-    } catch (e, s) {
-      if (kDebugMode) {
-        Utils.reportError(e, s);
-      }
-      return const SizedBox.shrink();
+      ],
+    );
+  } catch (e, s) {
+    if (kDebugMode) {
+      Utils.reportError(e, s);
     }
+    return const SizedBox.shrink();
   }
+}
+
+Widget _headerWrapper(Widget child) {
+  return IgnorePointer(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 125),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: .centerLeft,
+            end: .centerRight,
+            colors: [
+              Colors.transparent,
+              Colors.black12,
+              Colors.black38,
+              Colors.black45,
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const .only(left: 15, right: 5, bottom: 2),
+          child: child,
+        ),
+      ),
+    ),
+  );
 }

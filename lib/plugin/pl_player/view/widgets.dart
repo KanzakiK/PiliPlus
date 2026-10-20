@@ -153,15 +153,14 @@ class VideoShotImage extends StatefulWidget {
 }
 
 Future<ui.Image?> _getImg(String url) async {
-  final cacheManager = DefaultCacheManager();
   final cacheKey = Utils.getFileName(url, fileExt: false);
   try {
-    final fileInfo = await cacheManager.getSingleFile(
+    final fileInfo = await CacheManager.manager.getSingleFile(
       ImageUtils.safeThumbnailUrl(url),
       key: cacheKey,
       headers: Constants.baseHeaders,
     );
-    return _loadImg(fileInfo.path);
+    return await _loadImg(fileInfo.path);
   } catch (_) {
     return null;
   }
@@ -294,10 +293,7 @@ class _VideoShotImageState extends State<VideoShotImage> {
 const double _triangleHeight = 5.6;
 
 class _DanmakuTip extends SingleChildRenderObjectWidget {
-  const _DanmakuTip({
-    this.offset = 0,
-    super.child,
-  });
+  const _DanmakuTip({this.offset = 0, super.child});
 
   final double offset;
 
@@ -317,8 +313,8 @@ class _DanmakuTip extends SingleChildRenderObjectWidget {
 
 class _RenderDanmakuTip extends RenderProxyBox {
   _RenderDanmakuTip({
-    required double offset,
-  }) : _offset = offset;
+    required this._offset,
+  });
 
   double _offset;
   double get offset => _offset;
@@ -407,21 +403,22 @@ class _VideoTime extends LeafRenderObjectWidget {
 
 class _RenderVideoTime extends RenderBox {
   _RenderVideoTime({
-    required String position,
-    required String duration,
-  }) : _position = position,
-       _duration = duration;
+    required this._position,
+    required this._duration,
+  });
 
   String _duration;
   set duration(String value) {
+    if (_duration == value) return;
     _duration = value;
     final paragraph = _buildParagraph(const Color(0xFFD0D0D0), _duration);
     if (paragraph.maxIntrinsicWidth != _cache?.maxIntrinsicWidth) {
       markNeedsLayout();
+    } else {
+      markNeedsSemanticsUpdate();
     }
     _cache?.dispose();
     _cache = paragraph;
-    markNeedsSemanticsUpdate();
   }
 
   String _position;
@@ -433,7 +430,7 @@ class _RenderVideoTime extends RenderBox {
 
   ui.Paragraph? _cache;
 
-  ui.Paragraph _buildParagraph(Color color, String time) {
+  static ui.Paragraph _buildParagraph(Color color, String time) {
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
@@ -468,7 +465,9 @@ class _RenderVideoTime extends RenderBox {
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
-    config.label = 'position:$_position\nduration:$_duration';
+    config
+      ..textDirection = .ltr
+      ..label = 'position:$_position\nduration:$_duration';
   }
 
   @override

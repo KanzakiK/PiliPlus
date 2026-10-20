@@ -1,12 +1,20 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/member.dart';
+import 'package:PiliPlus/models/common/follow_order_type.dart';
 import 'package:PiliPlus/models/member/tags.dart';
+import 'package:PiliPlus/pages/follow/child/child_controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
-import 'package:flutter/material.dart';
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FollowController extends GetxController with GetTickerProviderStateMixin {
+  final String tag;
+  FollowController(this.tag);
+
   late final int mid;
   late final RxnString name;
   late final bool isOwner;
@@ -14,6 +22,19 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
   late final Rx<LoadingState> followState = LoadingState.loading().obs;
   late final RxList<MemberTagItemModel> tabs = <MemberTagItemModel>[].obs;
   TabController? tabController;
+
+  late final Rx<FollowOrderType> orderType = Pref.followOrderType.obs;
+
+  void toggleOrderType() {
+    final FollowOrderType type = orderType.value == .def ? .attention : .def;
+    orderType.value = type;
+    for (var e in tabs) {
+      try {
+        Get.find<FollowChildController>(tag: '$tag${e.tagid}').onReload();
+      } catch (_) {}
+    }
+    GStorage.setting.put(SettingBoxKey.followOrderType, type.index);
+  }
 
   @override
   void onInit() {
@@ -45,36 +66,35 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
       tabs
         ..assign(MemberTagItemModel(name: '全部关注'))
         ..addAll(response);
-      int initialIndex = 0;
-      if (tabController != null) {
-        initialIndex = tabController!.index.clamp(0, tabs.length - 1);
-        tabController!.dispose();
-      }
-      tabController = TabController(
-        initialIndex: initialIndex,
-        length: tabs.length,
-        vsync: this,
-      );
+      onInitTab();
       followState.value = Success(tabs.hashCode);
     } else {
       followState.value = res;
     }
   }
 
-  @override
-  void onClose() {
-    tabController?.dispose();
-    super.onClose();
+  void onInitTab() {
+    int initialIndex = 0;
+    if (tabController != null) {
+      initialIndex = tabController!.index.clamp(0, tabs.length - 1);
+      tabController!.dispose();
+    }
+    tabController = TabController(
+      initialIndex: initialIndex,
+      length: tabs.length,
+      vsync: this,
+    );
   }
 
-  Future<void> onCreateTag(String tagName) async {
-    final res = await MemberHttp.createFollowTag(tagName);
-    if (res.isSuccess) {
+  void onCreateFavTag(({int tagid, String tagName}) res) {
+    if (isClosed) return;
+    if (followState.value.isSuccess) {
+      tabs.add(MemberTagItemModel.fromCreate(res));
+      onInitTab();
+      followState.refresh();
+    } else {
       followState.value = LoadingState.loading();
       queryFollowUpTags();
-      SmartDialog.showToast('创建成功');
-    } else {
-      res.toast();
     }
   }
 
@@ -89,14 +109,22 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
     }
   }
 
-  Future<void> onDelTag(int tagid) async {
+  Future<void> onDelTag(int index, int tagid) async {
     final res = await MemberHttp.delFollowTag(tagid);
     if (res.isSuccess) {
-      followState.value = LoadingState.loading();
-      queryFollowUpTags();
+      tabs.removeAt(index);
+      onInitTab();
+      followState.refresh();
       SmartDialog.showToast('删除成功');
     } else {
       res.toast();
     }
+  }
+
+  @override
+  void onClose() {
+    tabController?.dispose();
+    tabController = null;
+    super.onClose();
   }
 }

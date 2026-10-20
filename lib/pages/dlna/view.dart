@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_sliver_safe_area.dart';
 import 'package:dlna_dart/dlna.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DLNAPage extends StatefulWidget {
   const DLNAPage({super.key});
@@ -71,8 +71,7 @@ class _DLNAPageState extends State<DLNAPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(
         title: const Text('投屏'),
         actions: [
@@ -84,7 +83,7 @@ class _DLNAPageState extends State<DLNAPage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: customScrollView(
+      body: CustomScrollView(
         slivers: [
           if (_isSearching) linearLoading,
           ViewSliverSafeArea(sliver: _buildBody(colorScheme)),

@@ -18,10 +18,10 @@
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/widgets/loading_widget/morphs.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' show SpringSimulation;
 import 'package:flutter/semantics.dart';
 import 'package:material_new_shapes/material_new_shapes.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// reimplement of https://github.com/EmilyMoonstone/material_3_expressive/tree/main/packages/loading_indicator_m3e
 
@@ -175,15 +175,12 @@ class RawM3ELoadingIndicator extends LeafRenderObjectWidget {
 
 class RenderM3ELoadingIndicator extends RenderBox {
   RenderM3ELoadingIndicator({
-    required Morph morph,
-    required double progress,
-    required double angle,
+    required this._morph,
+    required this._progress,
+    required this._angle,
     required Color color,
     required Size size,
-  }) : _morph = morph,
-       _progress = progress,
-       _angle = angle,
-       _preferredSize = size,
+  }) : _preferredSize = size,
        _color = color,
        _paint = Paint()
          ..style = PaintingStyle.fill

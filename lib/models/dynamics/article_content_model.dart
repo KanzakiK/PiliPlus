@@ -1,6 +1,10 @@
 import 'package:PiliPlus/common/style.dart' as common_style;
+import 'package:PiliPlus/models/dynamics/eva3_opus.dart';
+import 'package:PiliPlus/models/dynamics/eva3_video.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/models/dynamics/vote_model.dart';
+import 'package:PiliPlus/utils/color_utils.dart';
+import 'package:PiliPlus/utils/parse_int.dart';
 
 class ArticleContentModel {
   int? align;
@@ -13,6 +17,7 @@ class ArticleContentModel {
   Code? code;
   L1st? list;
   Text? heading;
+  Blockquote? blockquote;
 
   ArticleContentModel.fromJson(Map<String, dynamic> json) {
     align = json['align'];
@@ -27,6 +32,19 @@ class ArticleContentModel {
     code = json['code'] == null ? null : Code.fromJson(json['code']);
     list = json['list'] == null ? null : L1st.fromJson(json['list']);
     heading = json['heading'] == null ? null : Text.fromJson(json['heading']);
+    blockquote = json['blockquote'] == null
+        ? null
+        : Blockquote.fromJson(json['blockquote']);
+  }
+}
+
+class Blockquote {
+  List<ArticleContentModel>? children;
+
+  Blockquote.fromJson(Map<String, dynamic> json) {
+    children = (json['children'] as List?)
+        ?.map((e) => ArticleContentModel.fromJson(e))
+        .toList();
   }
 }
 
@@ -42,9 +60,9 @@ class Pic {
 
   Pic.fromJson(Map<String, dynamic> json) {
     url = json['url'];
-    width = (json['width'] as num?)?.toDouble();
-    height = (json['height'] as num?)?.toDouble();
-    size = json['size'];
+    width = parseDimension(json['width']);
+    height = parseDimension(json['height']);
+    size = parseDimension(json['size']);
     pics = (json['pics'] as List?)?.map((item) => Pic.fromJson(item)).toList();
     style = json['style'];
     liveUrl = json['live_url'];
@@ -124,16 +142,23 @@ class Word {
 
   Word.fromJson(Map<String, dynamic> json) {
     words = json['words'];
-    fontSize = (json['font_size'] as num?)?.toDouble();
+    if (json['font_size'] case final num rawSize when rawSize != 0) {
+      fontSize = rawSize.toDouble();
+    }
     style = json['style'] == null ? null : Style.fromJson(json['style']);
-    color = json['color'] == null
-        ? null
-        : int.tryParse(
-            'FF${(json['color'] as String).substring(1)}',
-            radix: 16,
-          );
+    if (json['color'] case final String rawColor
+        when rawColor.startsWith('#')) {
+      color = ColourUtils.parse2Int(rawColor);
+    }
     fontLevel = json['font_level'];
   }
+
+  // font_level 映射处理：
+  //   "small"   → 13px
+  //   "regular" → 16px（与旧版 HTML 专栏基准一致）
+  //   其余/null → 同 regular
+  double get effectiveFontSize =>
+      fontSize ?? (fontLevel == 'small' ? 13.0 : 16.0);
 }
 
 class Style {
@@ -206,6 +231,9 @@ class Card {
   SimpleVoteInfo? vote;
   Music? music;
   Goods? goods;
+  Eva3Video? eva3Video;
+  Eva3Opus? eva3Opus;
+  // archive, match, reserve, upower_lottery, eva3_comment, eva3_user, eva3_vote
 
   Card.fromJson(Map<String, dynamic> json) {
     oid = json['oid'];
@@ -220,6 +248,12 @@ class Card {
     vote = json['vote'] == null ? null : SimpleVoteInfo.fromJson(json['vote']);
     music = json['music'] == null ? null : Music.fromJson(json['music']);
     goods = json['goods'] == null ? null : Goods.fromJson(json['goods']);
+    eva3Video = json['eva3_video'] == null
+        ? null
+        : Eva3Video.fromJson(json['eva3_video']);
+    eva3Opus = json['eva3_opus'] == null
+        ? null
+        : Eva3Opus.fromJson(json['eva3_opus']);
   }
 }
 
@@ -268,7 +302,7 @@ class Music {
 
   Music.fromJson(Map<String, dynamic> json) {
     cover = json['cover'];
-    id = json['id'];
+    id = safeToInt(json['id']);
     jumpUrl = json['jump_url'];
     label = json['label'];
     title = json['title'];
@@ -284,12 +318,12 @@ class Opus {
   int? statView;
 
   Opus.fromJson(Map<String, dynamic> json) {
-    authorMid = json['author']?['mid'];
+    authorMid = safeToInt(json['author']?['mid']);
     authorName = json['author']?['name'];
     cover = json['cover'];
     jumpUrl = json['jump_url'];
     title = json['title'];
-    statView = json['stat']?['view'];
+    statView = safeToInt(json['stat']?['view']);
   }
 }
 
@@ -310,9 +344,9 @@ class Live {
     descSecond = json['desc_second'];
     title = json['title'];
     jumpUrl = json['jump_url'];
-    id = json['id'];
-    liveState = json['live_state'];
-    reserveType = json['reserve_type'];
+    id = safeToInt(json['id']);
+    liveState = safeToInt(json['live_state']);
+    reserveType = safeToInt(json['reserve_type']);
     badgeText = json['badge']?['text'];
   }
 }
@@ -384,11 +418,25 @@ class LinkCard {
 
 class L1st {
   List<Item>? items;
+  List<Child>? children;
   int? style;
 
   L1st.fromJson(Map<String, dynamic> json) {
     items = (json['items'] as List?)?.map((e) => Item.fromJson(e)).toList();
+    children = (json['children'] as List?)
+        ?.map((e) => Child.fromJson(e))
+        .toList();
     style = json['style'];
+  }
+}
+
+class Child {
+  List<ArticleContentModel>? children;
+
+  Child.fromJson(Map<String, dynamic> json) {
+    children = (json['children'] as List?)
+        ?.map((e) => ArticleContentModel.fromJson(e))
+        .toList();
   }
 }
 

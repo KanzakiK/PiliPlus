@@ -1,14 +1,13 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/member_pgc/controller.dart';
 import 'package:PiliPlus/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberBangumi extends StatefulWidget {
   const MemberBangumi({
@@ -47,8 +46,9 @@ class _MemberBangumiState extends State<MemberBangumi>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      isClampingScrollPhysics: true,
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -86,9 +86,7 @@ class _MemberBangumiState extends State<MemberBangumi>
                   if (index == response.length - 1) {
                     _controller.onLoadMore();
                   }
-                  return PgcCardVMemberPgc(
-                    item: response[index],
-                  );
+                  return PgcCardVMemberPgc(response[index]);
                 },
                 itemCount: response.length,
               )

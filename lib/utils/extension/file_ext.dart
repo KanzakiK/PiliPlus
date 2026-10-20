@@ -1,11 +1,8 @@
-import 'dart:io';
+import 'dart:io' show FileSystemEntity, Directory, File;
 
 extension FileSystemEntityExt on FileSystemEntity {
-  Future<void> tryDel({bool recursive = false}) async {
-    try {
-      await delete(recursive: recursive);
-    } catch (_) {}
-  }
+  Future<void> tryDel({bool recursive = false}) =>
+      delete(recursive: recursive).catchError((_) => this);
 }
 
 extension DirectoryExt on Directory {
@@ -15,5 +12,16 @@ extension DirectoryExt on Directory {
       if (++count == length) return true;
     }
     return false;
+  }
+}
+
+extension FileExt on File {
+  Future<void> moveOrCopy(String newPath) async {
+    try {
+      await rename(newPath);
+    } catch (_) {
+      await copy(newPath);
+      await tryDel();
+    }
   }
 }

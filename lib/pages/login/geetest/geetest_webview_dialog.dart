@@ -1,16 +1,12 @@
-import 'dart:convert' show jsonDecode, jsonEncode;
-import 'dart:io' show Platform, Directory, File;
+import 'dart:convert' show jsonDecode;
+import 'dart:io' show Platform;
 
 import 'package:PiliPlus/http/browser_ua.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/main.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:desktop_webview_window/desktop_webview_window.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:PiliPlus/plugin/linux_webview.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class GeetestWebviewDialog extends StatefulWidget {
   const GeetestWebviewDialog(this.gt, this.challenge, {super.key});
@@ -20,209 +16,115 @@ class GeetestWebviewDialog extends StatefulWidget {
 
   @override
   State<GeetestWebviewDialog> createState() => _GeetestWebviewDialogState();
+
+  static Future<Map<String, dynamic>?> geetest(String gt, String challenge) {
+    return showDialog<Map<String, dynamic>>(
+      context: Get.context!,
+      builder: (context) => GeetestWebviewDialog(gt, challenge),
+    );
+  }
 }
 
 class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   static const _geetestJsUri =
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
+  static const _geetestConfigUri = 'https://api.geetest.com/gettype.php';
 
-  late final Future<LoadingState<String>> _future;
-  Webview? _linuxWebview;
-  late bool _linuxWebviewLoading = true;
+  static String _buildHtml(String gt, String challenge) {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final js =
+        'var C,S,T,t;'
+        'T=()=>{if(C&&S&&!t){t=Geetest(C).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}};'
+        'geetest_$ts=(d)=>{'
+        'if(!d||d.status!="success"){R("error",JSON.stringify(d));return};'
+        'C=Object.assign({gt:"$gt",challenge:"$challenge",offline:false,new_captcha:true,product:"bind",width:"100%",https:true,protocol:"https://"},d.data);T()'
+        '};'
+        'G=()=>{S=1;T()};'
+        'E=()=>{document.getElementById("E").textContent="验证码加载失败";R("error","geetest script load failed")}';
 
-  @override
-  void initState() {
-    super.initState();
-    _future = _getConfig(widget.gt, widget.challenge);
-    if (Platform.isLinux) {
-      _initLinuxWebview();
-    }
-  }
-
-  static Future<LoadingState<String>> _getConfig(
-    String gt,
-    String challenge,
-  ) async {
-    final res = await Request().get<String>(
-      'https://api.geetest.com/gettype.php',
-      queryParameters: {'gt': gt},
-      options: Options(
-        responseType: ResponseType.plain,
-        extra: {'account': const NoAccount()},
-      ),
-    );
-    if (res.data case final String data) {
-      if (data.startsWith('(') && data.endsWith(')')) {
-        final Map<String, dynamic> config;
-        try {
-          config = jsonDecode(data.substring(1, data.length - 1));
-        } catch (e) {
-          return Error(e.toString());
-        }
-        if (config['status'] == 'success') {
-          return Success(
-            jsonEncode(
-              config['data'] as Map<String, dynamic>..addAll({
-                "gt": gt,
-                "challenge": challenge,
-                "offline": false,
-                "new_captcha": true,
-                "product": "bind",
-                "width": "100%",
-                "https": true,
-                "protocol": "https://",
-              }),
-            ),
-          );
-        } else {
-          return Error(data);
-        }
-      }
-    }
-    return Error(res.data['message']);
-  }
-
-  Future<void> _initLinuxWebview() async {
-    final config = await _future;
-
-    if (!mounted) {
-      return;
-    }
-
-    if (config is Error) {
-      config.toast();
-      Get.back();
-      return;
-    }
-
-    final response = (config as Success<String>).response;
-
-    _linuxWebview = await WebviewWindow.create(
-      configuration: const CreateConfiguration(
-        windowWidth: 300,
-        windowHeight: 400,
-        title: "验证码",
-      ),
-    );
-
-    if (!mounted) {
-      _closeLinuxWebview();
-      return;
-    }
-
-    _linuxWebview!.addOnWebMessageReceivedCallback((msg) {
-      final msgStr = msg.toString();
-      if (msgStr.startsWith("success:")) {
-        final dataStr = msgStr.substring("success:".length);
-        try {
-          final data = jsonDecode(dataStr);
-          Get.back(result: data);
-        } catch (e) {
-          debugPrint('geetest decode error: $e');
-        }
-      } else if (msgStr.startsWith("error:")) {
-        debugPrint('geetest error: $msgStr');
-      }
-    });
-
-    _linuxWebview!.onClose.whenComplete(() {
-      if (mounted) {
-        Get.back();
-      }
-    });
-
-    final html =
-        '''
-<!DOCTYPE html><html><head></head><body>
-<script src="$_geetestJsUri"></script>
-<script>
-  function R(n,o){
-     window.webkit.messageHandlers.msgToNative.postMessage(n + ':' + JSON.stringify(o));
-  }
-  let t=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError((o)=>R("error",o));
-  t.onReady(()=>t.verify());
-</script>
-</body></html>
-''';
-
-    final tempDir = Directory.systemTemp;
-    final file = File(
-      '${tempDir.path}/geetest_${DateTime.now().millisecondsSinceEpoch}.html',
-    );
-    await file.writeAsString(html);
-
-    if (!mounted) {
-      _closeLinuxWebview();
-      return;
-    }
-
-    _linuxWebview!.launch('file://${file.path}');
-
-    if (mounted) {
-      setState(() {
-        _linuxWebviewLoading = false;
-      });
-    }
-  }
-
-  void _closeLinuxWebview() {
-    _linuxWebview?.close();
-    _linuxWebview = null;
-  }
-
-  @override
-  void dispose() {
-    _closeLinuxWebview();
-    super.dispose();
+    return '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"></head>'
+        '<style>#E{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:red}</style>'
+        '<body><div id="E"></div>'
+        '<script>'
+        '${Platform.isLinux ? "R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))" : "R=(n,o)=>window.flutter_inappwebview?.callHandler(n,o)"};$js'
+        '</script>'
+        '<script src="$_geetestJsUri" onload="G()" onerror="E()"></script>'
+        '<script src="$_geetestConfigUri?gt=$gt&callback=geetest_$ts" onerror="E()"></script>'
+        '</body></html>';
   }
 
   @override
   Widget build(BuildContext context) {
+    final html = _buildHtml(widget.gt, widget.challenge);
+
     if (Platform.isLinux) {
       return AlertDialog(
         title: const Text('验证码'),
         content: SizedBox(
           width: 300,
           height: 400,
-          child: Center(
-            child: _linuxWebviewLoading
-                ? const CircularProgressIndicator()
-                : const Text('请在弹出的新窗口中完成验证'),
+          child: LinuxWebview(
+            initialHtml: html,
+            userAgent: BrowserUa.mob,
+            incognito: true,
+            onWebMessageReceived: (msg) {
+              final msgStr = msg.toString();
+              if (msgStr.startsWith("success:")) {
+                final dataStr = msgStr.substring("success:".length);
+                try {
+                  final data = jsonDecode(dataStr);
+                  Get.back(result: data);
+                } catch (e) {
+                  debugPrint('geetest decode error: $e');
+                }
+              } else if (msgStr.startsWith("error:")) {
+                debugPrint('geetest error: $msgStr');
+              } else if (msgStr.startsWith('close:')) {
+                Get.back();
+              }
+            },
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: Text(
-              '取消',
-              style: TextStyle(color: ColorScheme.of(context).outline),
-            ),
-          ),
-        ],
       );
     }
 
-    return AlertDialog(
-      title: const Text('验证码'),
-      content: SizedBox(
-        width: 300,
-        height: 400,
-        child: InAppWebView(
+    return Stack(
+      children: [
+        InAppWebView(
           webViewEnvironment: webViewEnvironment,
           initialSettings: InAppWebViewSettings(
             clearCache: true,
             javaScriptEnabled: true,
             forceDark: ForceDark.AUTO,
-            useHybridComposition: false,
+            useHybridComposition: true,
             algorithmicDarkeningAllowed: true,
             useShouldOverrideUrlLoading: true,
             userAgent: BrowserUa.mob,
-            mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+            mixedContentMode: .MIXED_CONTENT_ALWAYS_ALLOW,
+
+            incognito: true,
+            allowFileAccess: false,
+            allowsLinkPreview: false,
+            allowContentAccess: false,
+            useOnDownloadStart: false,
+            geolocationEnabled: false,
+            thirdPartyCookiesEnabled: false,
+            enterpriseAuthenticationAppLinkPolicyEnabled: false,
+            saveFormData: false,
+            safeBrowsingEnabled: false,
+            isFraudulentWebsiteWarningEnabled: false,
+            domStorageEnabled: false,
+            databaseEnabled: false,
+            cacheEnabled: false,
+            cacheMode: .LOAD_NO_CACHE,
+
+            horizontalScrollBarEnabled: false,
+            verticalScrollBarEnabled: false,
+            overScrollMode: .NEVER,
+
+            pageZoom: Platform.isIOS ? 3 : 1,
           ),
-          initialData: InAppWebViewInitialData(
-            data:
-                '<!DOCTYPE html><html><head></head><body><script src="$_geetestJsUri"></script><script>function R(n,o){flutter_inappwebview.callHandler(n,o)}</script></body></html>',
-          ),
+          initialData: InAppWebViewInitialData(data: html),
           onWebViewCreated: (ctr) {
             ctr
               ..addJavaScriptHandler(
@@ -242,29 +144,20 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                 callback: (args) {
                   debugPrint('geetest error: $args');
                 },
+              )
+              ..addJavaScriptHandler(
+                handlerName: 'close',
+                callback: (args) => Get.back(),
               );
-          },
-          onLoadStop: (ctr, _) async {
-            final config = await _future;
-            if (!mounted) return;
-            if (config case Success(:final response)) {
-              ctr.evaluateJavascript(
-                source:
-                    'let t=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError((o)=>R("error",o));t.onReady(()=>t.verify());',
-              );
-            } else {
-              config.toast();
-              Get.back();
-            }
           },
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
+        Positioned(
+          left: 8,
+          top: 8,
+          child: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: Get.back,
+            tooltip: '关闭',
           ),
         ),
       ],

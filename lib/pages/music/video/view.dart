@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -9,8 +8,8 @@ import 'package:PiliPlus/pages/music/video/controller.dart';
 import 'package:PiliPlus/pages/music/widget/music_video_card_h.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MusicRecommendPage extends StatefulWidget {
   const MusicRecommendPage({super.key});
@@ -34,7 +33,7 @@ class _MusicRecommendPageState extends State<MusicRecommendPage>
       color: theme.colorScheme.surface,
       child: refreshIndicator(
         onRefresh: _controller.onRefresh,
-        child: customScrollView(
+        child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildAppBar(theme, padding),

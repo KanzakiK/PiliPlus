@@ -1,7 +1,6 @@
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/m3e_loading_indicator.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 const Widget m3eLoading = Center(child: M3ELoadingIndicator());
 
@@ -9,13 +8,13 @@ const Widget linearLoading = SliverToBoxAdapter(
   child: LinearProgressIndicator(),
 );
 
-const Widget scrollableError = customScrollView(slivers: [HttpError()]);
+const Widget scrollableError = CustomScrollView(slivers: [HttpError()]);
 
 Widget scrollErrorWidget({
   String? errMsg,
   VoidCallback? onReload,
   ScrollController? controller,
-}) => customScrollView(
+}) => CustomScrollView(
   controller: controller,
   slivers: [
     HttpError(

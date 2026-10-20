@@ -7,7 +7,9 @@ import 'package:PiliPlus/common/widgets/dialog/report_member.dart';
 import 'package:PiliPlus/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
+import 'package:PiliPlus/common/widgets/scroll_behavior.dart'
+    show NoOverscrollIndicator;
+import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
@@ -32,6 +34,8 @@ import 'package:PiliPlus/pages/member_pgc/view.dart';
 import 'package:PiliPlus/pages/member_shop/view.dart';
 import 'package:PiliPlus/pages/member_video_web/archive/view.dart';
 import 'package:PiliPlus/pages/member_video_web/season_series/view.dart';
+import 'package:PiliPlus/utils/android/android_helper.dart';
+import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -40,11 +44,10 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberPage extends StatefulWidget {
   const MemberPage({super.key});
@@ -91,8 +94,9 @@ class _MemberPageState extends State<MemberPage> {
         () => switch (_userController.loadingState.value) {
           Loading() => m3eLoading,
           Success(:final response) => ExtendedNestedScrollView(
-            key: _userController.key,
             onlyOneScrollInBody: true,
+            key: _userController.scrollKey,
+            scrollBehavior: const NoOverscrollIndicator(),
             pinnedHeaderSliverHeightBuilder: () =>
                 kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
             headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -117,6 +121,7 @@ class _MemberPageState extends State<MemberPage> {
                         chargeCount: _userController.chargeCount,
                         guards: _userController.guards,
                         guardCount: _userController.guardCount,
+                        hasMedal: _userController.medal == 1,
                       ),
                     ),
                   ),
@@ -143,6 +148,7 @@ class _MemberPageState extends State<MemberPage> {
                           SizedBox(
                             height: 45,
                             child: TabBar(
+                              labelPadding: .zero,
                               controller: _userController.tabController,
                               tabs: _userController.tabs,
                               onTap: _userController.onTapTab,
@@ -341,8 +347,7 @@ class _MemberPageState extends State<MemberPage> {
     PopupMenuButton(
       icon: const Icon(Icons.more_vert),
       itemBuilder: (_) => <PopupMenuEntry>[
-        if (_userController.account.isLogin &&
-            _userController.account.mid != _mid) ...[
+        if (_userController.account.mid != _mid) ...[
           PopupMenuItem(
             onTap: () => _userController.blockUser(context),
             child: Row(
@@ -356,7 +361,8 @@ class _MemberPageState extends State<MemberPage> {
               ],
             ),
           ),
-          if (_userController.isFollowed == 1)
+          if (_userController.account.isLogin &&
+              _userController.isFollowed == 1)
             PopupMenuItem(
               onTap: _userController.onRemoveFan,
               child: const Row(
@@ -567,6 +573,7 @@ class _MemberPageState extends State<MemberPage> {
   ];
 
   Widget get _buildBody => tabBarView(
+    hitTestBehavior: .translucent,
     controller: _userController.tabController,
     children: _userController.tab2!.map((item) {
       return switch (item.param!) {
@@ -702,18 +709,15 @@ class _MemberPageState extends State<MemberPage> {
   Future<void> _createShortcutAndroid() async {
     try {
       SmartDialog.showLoading();
-      final file = (await DefaultCacheManager().getSingleFile(
+      final file = (await CacheManager.manager.getSingleFile(
         '${_userController.userAvatar!}@200w_200h.webp'.http2https,
       ));
       SmartDialog.dismiss();
-      await Utils.channel.invokeMethod(
-        'createShortcut',
-        <String, String>{
-          'id': _userController.mid.toString(),
-          'uri': 'bilibili://space/${_userController.mid}',
-          'label': _userController.username!,
-          'icon': file.path,
-        },
+      PiliAndroidHelper.createShortcut(
+        _userController.mid.toString(),
+        'bilibili://space/${_userController.mid}',
+        _userController.username!,
+        file.path,
       );
     } catch (e) {
       SmartDialog.showToast(e.toString());

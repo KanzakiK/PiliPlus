@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
@@ -9,8 +8,8 @@ import 'package:PiliPlus/models_new/space/space_audio/item.dart';
 import 'package:PiliPlus/pages/member_audio/controller.dart';
 import 'package:PiliPlus/pages/member_audio/widgets/item.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberAudio extends StatefulWidget {
   const MemberAudio({
@@ -27,7 +26,7 @@ class MemberAudio extends StatefulWidget {
 }
 
 class _MemberAudioState extends State<MemberAudio>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, GridMixin {
   late final MemberAudioController _controller;
 
   @override
@@ -44,8 +43,9 @@ class _MemberAudioState extends State<MemberAudio>
     super.build(context);
     final colorScheme = ColorScheme.of(context);
     return refreshIndicator(
+      isClampingScrollPhysics: true,
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -63,13 +63,6 @@ class _MemberAudioState extends State<MemberAudio>
 
   @override
   bool get wantKeepAlive => true;
-
-  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    mainAxisSpacing: 2,
-    maxCrossAxisExtent: Grid.smallCardWidth * 2,
-    childAspectRatio: Style.aspectRatio * 2.6,
-    minHeight: MediaQuery.textScalerOf(context).scale(90),
-  );
 
   Widget _buildBody(
     ColorScheme colorScheme,
@@ -120,9 +113,7 @@ class _MemberAudioState extends State<MemberAudio>
                       if (index == response.length - 1) {
                         _controller.onLoadMore();
                       }
-                      return MemberAudioItem(
-                        item: response[index],
-                      );
+                      return MemberAudioItem(response[index]);
                     },
                     itemCount: response.length,
                   ),

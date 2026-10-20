@@ -24,7 +24,6 @@ import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/gestures.dart'
     show TapGestureRecognizer, LongPressGestureRecognizer;
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show
         ContainerRenderObjectMixin,
@@ -37,7 +36,10 @@ import 'package:flutter/rendering.dart'
         BoxHitTestEntry,
         ContainerParentDataMixin,
         InformationCollector,
-        DiagnosticsDebugCreator;
+        DiagnosticsDebugCreator,
+        RenderObjectVisitor,
+        SemanticsConfiguration;
+import 'package:material_ui/material_ui.dart';
 
 /// ref [LayoutBuilder]
 
@@ -94,11 +96,10 @@ class RenderImageGrid extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData>,
         RenderObjectWithLayoutCallbackMixin {
   RenderImageGrid({
-    required ValueChanged<int> onTap,
+    required this._onTap,
     required OnShowMenu? onSecondaryTapUp,
     required OnShowMenu? onLongPressStart,
-  }) : _onTap = onTap,
-       _onSecondaryTapUp = onSecondaryTapUp,
+  }) : _onSecondaryTapUp = onSecondaryTapUp,
        _onLongPressStart = onLongPressStart {
     _tapGestureRecognizer = TapGestureRecognizer()..onTap = _handleOnTap;
     if (onSecondaryTapUp != null) {
@@ -249,6 +250,23 @@ class RenderImageGrid extends RenderBox
     _onSecondaryTapUp = null;
     _onLongPressStart = null;
     super.dispose();
+  }
+
+  @override
+  void visitChildrenForSemantics(RenderObjectVisitor visitor) {
+    RenderBox? child = firstChild;
+    while (child != null) {
+      visitor(child);
+      child = (child.parentData as MultiChildLayoutParentData).nextSibling;
+    }
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config
+      ..explicitChildNodes = true
+      ..isSemanticBoundary = true;
   }
 
   @override
@@ -461,8 +479,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     // configuration, or an inherited widget.
     renderObject.scheduleLayoutCallback();
     _needsBuild = true;
-    super
-        .performRebuild(); // Calls widget.updateRenderObject (a no-op in this case).
+    super.performRebuild(); // Calls widget.updateRenderObject (a no-op in this case).
   }
 
   @override
@@ -481,7 +498,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     List<ImageModel> picArr,
     BoxConstraints layoutInfo,
   ) {
-    final maxWidth = layoutInfo.maxWidth;
+    final maxWidth = math.min(525.0, layoutInfo.maxWidth);
     double imageWidth;
     double imageHeight;
     final length = picArr.length;
@@ -497,7 +514,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
         final height = img.height;
         final ratioWH = width / height;
         final ratioHW = height / width;
-        imageWidth = ratioWH > 1.5
+        imageWidth = ratioWH > 1.45
             ? maxWidth
             : (ratioWH >= 1 || (height > width && ratioHW < 1.5))
             ? 2 * imageWidth

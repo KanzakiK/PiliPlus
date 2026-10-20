@@ -2,22 +2,29 @@ import 'package:PiliPlus/http/dynamics.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/models/dynamics/article_content_model.dart'
     show ArticleContentModel;
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models_new/article/article_view/data.dart';
+import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliPlus/pages/common/dyn/common_dyn_controller.dart';
+import 'package:PiliPlus/pages/common/reply_controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/url_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-class ArticleController extends CommonDynController {
+class ArticleController extends CommonDynController
+    with
+        GetSingleTickerProviderStateMixin,
+        ReplyLocateMixin,
+        MainReplyLocateMixin,
+        DynReplyLocateMixin {
   late String id;
   late String type;
 
@@ -29,6 +36,8 @@ class ArticleController extends CommonDynController {
   @override
   int get replyType => commentType;
   final summary = Summary();
+  @override
+  MentionItem? get mentionItem => summary.author?.mentionItem;
 
   late final RxInt topIndex = 0.obs;
 
@@ -38,10 +47,16 @@ class ArticleController extends CommonDynController {
   final RxBool isLoaded = false.obs;
   DynamicItemModel? opusData; // 标题信息从summary获取, 动态没有favorite
   ArticleViewData? articleData;
-  final Rx<ModuleStatModel?> stats = Rx<ModuleStatModel?>(null);
+  final stats = Rxn<ModuleStatModel>();
 
   List<ArticleContentModel>? get opus =>
       opusData?.modules.moduleContent ?? articleData?.opus?.content;
+
+  List<SourceModel>? _images;
+  List<SourceModel> images() => _images ??= opus!
+      .where((e) => e.paraType == 2 && e.pic != null)
+      .map((e) => SourceModel(url: e.pic!.pics!.first.url!))
+      .toList();
 
   @override
   void onInit() {
@@ -175,19 +190,17 @@ class ArticleController extends CommonDynController {
 
   Future<void> onFav() async {
     final favorite = stats.value?.favorite;
-    bool isFav = favorite?.status == true;
+    if (favorite == null) return;
+    final isFav = favorite.status ?? false;
     final res = type == 'read'
         ? isFav
               ? await FavHttp.delFavArticle(id: commentId)
               : await FavHttp.addFavArticle(id: commentId)
         : await FavHttp.communityAction(opusId: id, action: isFav ? 4 : 3);
     if (res.isSuccess) {
-      favorite?.status = !isFav;
-      if (isFav) {
-        favorite?.count--;
-      } else {
-        favorite?.count++;
-      }
+      favorite
+        ..status = !isFav
+        ..count = (favorite.count ?? 0) + (isFav ? -1 : 1);
       stats.refresh();
       SmartDialog.showToast('${isFav ? '取消' : ''}收藏成功');
     } else {
@@ -197,18 +210,16 @@ class ArticleController extends CommonDynController {
 
   Future<void> onLike() async {
     final like = stats.value?.like;
-    bool isLike = like?.status == true;
+    if (like == null) return;
+    final isLike = like.status ?? false;
     final res = await DynamicsHttp.thumbDynamic(
       dynamicId: opusData?.idStr ?? articleData?.dynIdStr,
       up: isLike ? 2 : 1,
     );
     if (res.isSuccess) {
-      like?.status = !isLike;
-      if (isLike) {
-        like?.count--;
-      } else {
-        like?.count++;
-      }
+      like
+        ..status = !isLike
+        ..count = (like.count ?? 0) + (isLike ? -1 : 1);
       stats.refresh();
       SmartDialog.showToast(!isLike ? '点赞成功' : '取消赞');
     } else {

@@ -1,33 +1,24 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliPlus/utils/desktop/window_controller.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:flutter/services.dart'
-    show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
+    show SystemChrome, SystemUiOverlay, DeviceOrientation;
 
 bool _isDesktopFullScreen = false;
 
-@pragma('vm:notify-debugger-on-exception')
-Future<void> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
+void enterDesktopFullScreen({bool inAppFullScreen = false}) {
   if (!inAppFullScreen && !_isDesktopFullScreen) {
-    _isDesktopFullScreen = true;
-    try {
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.EnterNativeFullscreen');
-    } catch (_) {}
+    WindowController.instance.window?.isFullScreen = _isDesktopFullScreen =
+        true;
   }
 }
 
-@pragma('vm:notify-debugger-on-exception')
-Future<void> exitDesktopFullScreen() async {
+void exitDesktopFullScreen() {
   if (_isDesktopFullScreen) {
-    _isDesktopFullScreen = false;
-    try {
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.ExitNativeFullscreen');
-    } catch (_) {}
+    WindowController.instance.window?.isFullScreen = _isDesktopFullScreen =
+        false;
   }
 }
 
@@ -62,23 +53,24 @@ Future<void>? fullMode() {
   );
 }
 
-bool _showStatusBar = true;
-Future<void>? hideStatusBar() {
-  if (!_showStatusBar) {
+bool _showSystemBar = true;
+bool get showSystemBar_ => _showSystemBar;
+Future<void>? hideSystemBar() {
+  if (!_showSystemBar) {
     return null;
   }
-  _showStatusBar = false;
+  _showSystemBar = false;
   return SystemChrome.setEnabledSystemUIMode(.immersiveSticky);
 }
 
 //退出全屏显示
-Future<void>? showStatusBar() {
-  if (_showStatusBar) {
+Future<void>? showSystemBar() {
+  if (_showSystemBar) {
     return null;
   }
-  _showStatusBar = true;
+  _showSystemBar = true;
   return SystemChrome.setEnabledSystemUIMode(
-    Platform.isAndroid && Utils.sdkInt < 29 ? .manual : .edgeToEdge,
+    Platform.isAndroid && DeviceUtils.sdkInt < 29 ? .manual : .edgeToEdge,
     overlays: SystemUiOverlay.values,
   );
 }

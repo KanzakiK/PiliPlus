@@ -1,38 +1,34 @@
-import 'package:flutter/material.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PublishRoute<T> extends PopupRoute<T> {
   PublishRoute({
-    required RoutePageBuilder pageBuilder,
-    bool barrierDismissible = true,
-    String? barrierLabel,
-    Color barrierColor = const Color(0x80000000),
-    Duration transitionDuration = const Duration(milliseconds: 500),
-    RouteTransitionsBuilder? transitionBuilder,
+    required this.pageBuilder,
+    this.barrierDismissible = true,
+    this.barrierLabel,
+    this.barrierColor = const Color(0x80000000),
+    Duration? transitionDuration,
+    this._transitionBuilder,
     super.settings,
-  }) : widget = pageBuilder,
-       _barrierDismissible = barrierDismissible,
-       _barrierLabel = barrierLabel,
-       _barrierColor = barrierColor,
-       _transitionDuration = transitionDuration,
-       _transitionBuilder = transitionBuilder;
+  }) : transitionDuration =
+           transitionDuration ??
+           (PlatformUtils.isDesktop
+               ? const Duration(milliseconds: 400)
+               : const Duration(milliseconds: 500));
 
-  final RoutePageBuilder widget;
-
-  @override
-  bool get barrierDismissible => _barrierDismissible;
-  final bool _barrierDismissible;
+  final RoutePageBuilder pageBuilder;
 
   @override
-  String? get barrierLabel => _barrierLabel;
-  final String? _barrierLabel;
+  final bool barrierDismissible;
 
   @override
-  Color get barrierColor => _barrierColor;
-  final Color _barrierColor;
+  final String? barrierLabel;
 
   @override
-  Duration get transitionDuration => _transitionDuration;
-  final Duration _transitionDuration;
+  final Color barrierColor;
+
+  @override
+  final Duration transitionDuration;
 
   final RouteTransitionsBuilder? _transitionBuilder;
 
@@ -45,7 +41,7 @@ class PublishRoute<T> extends PopupRoute<T> {
     return Semantics(
       scopesRoute: true,
       explicitChildNodes: true,
-      child: widget(context, animation, secondaryAnimation),
+      child: pageBuilder(context, animation, secondaryAnimation),
     );
   }
 

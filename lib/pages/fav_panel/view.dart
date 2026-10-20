@@ -1,12 +1,12 @@
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
-import 'package:PiliPlus/utils/fav_utils.dart';
+import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:flutter/material.dart';
+import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavPanel extends StatefulWidget {
   const FavPanel({
@@ -24,14 +24,21 @@ class FavPanel extends StatefulWidget {
 
 class _FavPanelState extends State<FavPanel> {
   LoadingState loadingState = LoadingState.loading();
+  late ColorScheme colorScheme;
 
   @override
   void initState() {
     super.initState();
-    _query();
+    _queryVideoInFolder();
   }
 
-  Future<void> _query() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
+  }
+
+  Future<void> _queryVideoInFolder() async {
     final res = await widget.ctr.queryVideoInFolder();
     if (mounted) {
       loadingState = res;
@@ -40,63 +47,94 @@ class _FavPanelState extends State<FavPanel> {
   }
 
   Widget get _buildBody {
-    late final list = widget.ctr.favFolderData.value.list!;
-    return switch (loadingState) {
-      Loading() => m3eLoading,
-      Success() => ExtendedListView.builder(
-        controller: widget.scrollController,
-        itemCount: list.length,
-        itemBuilder: (context, index) {
-          FavFolderInfo item = list[index];
-          return Material(
-            type: MaterialType.transparency,
-            child: Builder(
-              builder: (context) {
-                void onTap() {
-                  bool isChecked = item.favState == 1;
-                  item
-                    ..favState = isChecked ? 0 : 1
-                    ..mediaCount = isChecked
-                        ? item.mediaCount - 1
-                        : item.mediaCount + 1;
-                  (context as Element).markNeedsBuild();
-                }
+    switch (loadingState) {
+      case Loading():
+        return m3eLoading;
+      case Success():
+        final list = widget.ctr.favFolderData.value.list!;
+        return ListView.builder(
+          controller: widget.scrollController,
+          itemCount: list.length,
+          itemBuilder: (context, index) {
+            FavFolderInfo item = list[index];
+            return Material(
+              type: .transparency,
+              child: Builder(
+                builder: (context) {
+                  final isChecked = item.favState == 1;
 
-                return ListTile(
-                  onTap: onTap,
-                  dense: true,
-                  leading: FavUtils.isPublicFav(item.attr)
-                      ? const Icon(Icons.folder_outlined)
-                      : const Icon(Icons.lock_outline),
-                  minLeadingWidth: 0,
-                  title: Text(item.title),
-                  subtitle: Text(
-                    '${item.mediaCount}个内容 . ${FavUtils.isPublicFavText(item.attr)}',
-                  ),
-                  trailing: Transform.scale(
-                    scale: 0.9,
-                    child: Checkbox(
-                      value: item.favState == 1,
-                      onChanged: (bool? checkValue) => onTap(),
+                  void onTap() {
+                    item
+                      ..favState = isChecked ? 0 : 1
+                      ..mediaCount += isChecked ? -1 : 1;
+                    (context as Element).markNeedsBuild();
+                  }
+
+                  final isFull =
+                      BiliUtils.isFavFolderFull(item.attr, item.mediaCount) &&
+                      !isChecked;
+                  TextStyle? textStyle;
+                  if (isFull) {
+                    textStyle = TextStyle(color: colorScheme.outline);
+                  }
+
+                  return ListTile(
+                    onTap: isFull ? null : onTap,
+                    dense: true,
+                    leading: BiliUtils.isPublicFav(item.attr)
+                        ? isFull
+                              ? Icon(
+                                  Icons.folder_outlined,
+                                  color: colorScheme.outline,
+                                )
+                              : const Icon(Icons.folder_outlined)
+                        : isFull
+                        ? Icon(
+                            Icons.lock_outline,
+                            color: colorScheme.outline,
+                          )
+                        : const Icon(Icons.lock_outline),
+                    minLeadingWidth: 0,
+                    title: Text(item.title),
+                    subtitle: Text(
+                      '${NumUtils.numFormat(item.mediaCount)}个内容${isFull ? '(已满)' : ''} · ${BiliUtils.isPublicFavText(item.attr)}',
+                      style: textStyle,
                     ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      ),
-      Error(:final errMsg) => scrollErrorWidget(
-        controller: widget.scrollController,
-        errMsg: errMsg,
-        onReload: _query,
-      ),
-    };
+                    trailing: isFull
+                        ? Padding(
+                            padding: const .only(right: 8),
+                            child: Icon(
+                              size: 21.6,
+                              color: colorScheme.outline,
+                              Icons.indeterminate_check_box_outlined,
+                            ),
+                          )
+                        : Transform.scale(
+                            scale: 0.9,
+                            alignment: .centerRight,
+                            child: Checkbox(
+                              value: isChecked,
+                              materialTapTargetSize: .shrinkWrap,
+                              onChanged: (bool? checkValue) => onTap(),
+                            ),
+                          ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      case Error(:final errMsg):
+        return scrollErrorWidget(
+          errMsg: errMsg,
+          controller: widget.scrollController,
+          onReload: _queryVideoInFolder,
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).colorScheme;
     return Column(
       children: [
         AppBar(
@@ -110,23 +148,23 @@ class _FavPanelState extends State<FavPanel> {
           actions: [
             TextButton.icon(
               onPressed: () => Get.toNamed('/createFav')?.then((data) {
-                if (data != null) {
-                  widget.ctr.favFolderData
-                    ..value.list?.insert(1, data)
-                    ..refresh();
+                if (data is FavFolderInfo && mounted) {
+                  widget.ctr.favFolderData.value.list?.insert(
+                    1,
+                    data
+                      ..favState = 1
+                      ..mediaCount = 1,
+                  );
+                  setState(() {});
                 }
               }),
-              icon: Icon(
-                Icons.add,
-                color: theme.primary,
-              ),
+              icon: Icon(Icons.add, color: colorScheme.primary),
               label: const Text('新建收藏夹'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
+              style: const ButtonStyle(
+                visualDensity: .compact,
+                padding: WidgetStatePropertyAll(
+                  .symmetric(horizontal: 18, vertical: 14),
                 ),
-                visualDensity: VisualDensity.compact,
               ),
             ),
             const SizedBox(width: 16),
@@ -135,10 +173,10 @@ class _FavPanelState extends State<FavPanel> {
         Expanded(child: _buildBody),
         Divider(
           height: 1,
-          color: theme.outline.withValues(alpha: 0.1),
+          color: colorScheme.outline.withValues(alpha: 0.1),
         ),
         Padding(
-          padding: EdgeInsets.only(
+          padding: .only(
             left: 20,
             right: 20,
             top: 12,
@@ -146,14 +184,14 @@ class _FavPanelState extends State<FavPanel> {
           ),
           child: Row(
             spacing: 25,
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: .end,
             children: [
               FilledButton.tonal(
                 onPressed: Get.back,
                 style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  foregroundColor: theme.outline,
-                  backgroundColor: theme.onInverseSurface,
+                  visualDensity: .compact,
+                  foregroundColor: colorScheme.outline,
+                  backgroundColor: colorScheme.onInverseSurface,
                 ),
                 child: const Text('取消'),
               ),
@@ -162,9 +200,7 @@ class _FavPanelState extends State<FavPanel> {
                   feedBack();
                   widget.ctr.actionFavVideo();
                 },
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+                style: const ButtonStyle(visualDensity: .compact),
                 child: const Text('完成'),
               ),
             ],

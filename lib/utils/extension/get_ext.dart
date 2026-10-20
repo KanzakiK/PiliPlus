@@ -6,10 +6,25 @@ extension GetExt on GetInterface {
       GetInstance().putOrFind(dep, tag: tag);
 
   void updateMyAppTheme() {
-    final (l, d) = MyApp.getAllTheme();
+    final (light, dark) = MyApp.getAllTheme();
     rootController
-      ..theme = l
-      ..darkTheme = d
+      ..theme = light
+      ..darkTheme = dark
       ..update();
   }
+
+  Future<T?>? offOrToNamed<T>(
+    String page, {
+    dynamic arguments,
+    int? id,
+    bool preventDuplicates = true,
+    Map<String, String>? parameters,
+    bool off = false,
+  }) => (off ? offNamed : toNamed)(
+    page,
+    arguments: arguments,
+    id: id,
+    preventDuplicates: preventDuplicates,
+    parameters: parameters,
+  );
 }

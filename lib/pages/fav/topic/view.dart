@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart'
     show m3eLoading;
@@ -10,9 +9,9 @@ import 'package:PiliPlus/models_new/fav/fav_topic/topic_item.dart';
 import 'package:PiliPlus/pages/fav/topic/controller.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart'
-    hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart'
+    hide SliverGridDelegateWithMaxCrossAxisExtent;
 
 class FavTopicPage extends StatefulWidget {
   const FavTopicPage({super.key});
@@ -34,7 +33,7 @@ class _FavTopicPageState extends State<FavTopicPage>
     final ThemeData theme = Theme.of(context);
     return refreshIndicator(
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         controller: _controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

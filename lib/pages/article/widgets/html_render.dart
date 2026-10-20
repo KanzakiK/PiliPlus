@@ -4,11 +4,11 @@ import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:material_ui/material_ui.dart';
 
 Widget htmlRender({
   required BuildContext context,
@@ -43,6 +43,7 @@ Widget htmlRender({
           if (clazz?.contains('cut-off') == true || height != null) {
             return CachedNetworkImage(
               width: maxWidth,
+              gaplessPlayback: true,
               memCacheWidth: maxWidth.cacheSize(context),
               height: height != null ? double.parse(height) : null,
               imageUrl: ImageUtils.thumbnailUrl(imgUrl),
@@ -60,6 +61,7 @@ Widget htmlRender({
               tag: imgUrl,
               child: CachedNetworkImage(
                 width: width,
+                gaplessPlayback: true,
                 height: isEmote ? 22.0 : null,
                 memCacheWidth: width.cacheSize(context),
                 imageUrl: ImageUtils.thumbnailUrl(imgUrl, 60),
@@ -125,17 +127,15 @@ Widget htmlRender({
       margin: Margins.zero,
     ),
   };
-  return SelectionArea(
-    child: element != null
-        ? Html.fromElement(
-            documentElement: element,
-            extensions: extensions,
-            style: style,
-          )
-        : Html(
-            data: html,
-            extensions: extensions,
-            style: style,
-          ),
-  );
+  return element != null
+      ? Html.fromElement(
+          documentElement: element,
+          extensions: extensions,
+          style: style,
+        )
+      : Html(
+          data: html,
+          extensions: extensions,
+          style: style,
+        );
 }

@@ -1,18 +1,16 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/member/search_type.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliPlus/pages/member_search/child/controller.dart';
+import 'package:PiliPlus/pages/member_search/child/widgets/search_archive_grpc.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
+import 'package:material_ui/material_ui.dart';
 
 class MemberSearchChildPage extends StatefulWidget {
   const MemberSearchChildPage({
@@ -37,7 +35,7 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
     super.build(context);
     return refreshIndicator(
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         controller: _controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -79,33 +77,23 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
                     if (index == response.length - 1) {
                       _controller.onLoadMore();
                     }
-                    return VideoCardH(
-                      videoItem: response[index],
-                    );
+                    return SearchArchiveGrpc(item: response[index]);
                   },
                   itemCount: response.length,
                 ),
                 MemberSearchType.dynamic =>
                   GlobalData().dynamicsWaterfallFlow
-                      ? SliverWaterfallFlow(
+                      ? SliverMasonryGrid(
+                          crossAxisSpacing: 4,
                           gridDelegate: dynGridDelegate,
                           delegate: SliverChildBuilderDelegate(
-                            (_, index) {
-                              if (index == response.length - 1) {
-                                _controller.onLoadMore();
-                              }
-                              return DynamicPanel(item: response[index]);
-                            },
+                            (context, index) => _itemBuilder(response, index),
                             childCount: response.length,
                           ),
                         )
                       : SliverList.builder(
-                          itemBuilder: (context, index) {
-                            if (index == response.length - 1) {
-                              _controller.onLoadMore();
-                            }
-                            return DynamicPanel(item: response[index]);
-                          },
+                          itemBuilder: (context, index) =>
+                              _itemBuilder(response, index),
                           itemCount: response.length,
                         ),
               }
@@ -115,6 +103,13 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
         onReload: _controller.onReload,
       ),
     };
+  }
+
+  Widget _itemBuilder(List list, int index) {
+    if (index == list.length - 1) {
+      _controller.onLoadMore();
+    }
+    return DynamicPanel(item: list[index]);
   }
 
   @override

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 const double _kMaxLabelTextScaleFactor = 1.3;
 
@@ -74,65 +74,61 @@ class FloatingNavigationBar extends StatelessWidget {
 
     final padding = MediaQuery.viewPaddingOf(context);
 
-    return UnconstrainedBox(
-      child: Padding(
-        padding: .fromLTRB(
-          padding.left,
-          0,
-          padding.right,
-          bottomPadding + padding.bottom,
-        ),
-        child: SizedBox(
-          height: _kNavigationHeight,
-          width: destinations.length * _kIndicatorWidth,
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: ElevationOverlay.applySurfaceTint(
-                backgroundColor ??
-                    navigationBarTheme.backgroundColor ??
-                    defaults.backgroundColor!,
-                surfaceTintColor ??
-                    navigationBarTheme.surfaceTintColor ??
-                    defaults.surfaceTintColor,
-                elevation ??
-                    navigationBarTheme.elevation ??
-                    defaults.elevation!,
-              ),
-              shape: RoundedSuperellipseBorder(
-                side: defaults.borderSide,
-                borderRadius: _kBorderRadius,
-              ),
+    return Padding(
+      padding: .fromLTRB(
+        padding.left,
+        0,
+        padding.right,
+        bottomPadding + padding.bottom,
+      ),
+      child: SizedBox(
+        height: _kNavigationHeight,
+        width: destinations.length * _kIndicatorWidth,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: ElevationOverlay.applySurfaceTint(
+              backgroundColor ??
+                  navigationBarTheme.backgroundColor ??
+                  defaults.backgroundColor!,
+              surfaceTintColor ??
+                  navigationBarTheme.surfaceTintColor ??
+                  defaults.surfaceTintColor,
+              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
             ),
-            child: Padding(
-              padding: _kIndicatorPadding,
-              child: Row(
-                crossAxisAlignment: .stretch,
-                children: <Widget>[
-                  for (int i = 0; i < destinations.length; i++)
-                    Expanded(
-                      child: _SelectableAnimatedBuilder(
-                        duration: animationDuration,
-                        isSelected: i == selectedIndex,
-                        builder: (context, animation) {
-                          return _NavigationDestinationInfo(
-                            index: i,
-                            selectedIndex: selectedIndex,
-                            totalNumberOfDestinations: destinations.length,
-                            selectedAnimation: animation,
-                            labelBehavior: effectiveLabelBehavior,
-                            indicatorColor: indicatorColor,
-                            indicatorShape: indicatorShape,
-                            overlayColor: overlayColor,
-                            onTap: _handleTap(i),
-                            labelTextStyle: labelTextStyle,
-                            labelPadding: labelPadding,
-                            child: destinations[i],
-                          );
-                        },
-                      ),
+            shape: RoundedSuperellipseBorder(
+              side: defaults.borderSide,
+              borderRadius: _kBorderRadius,
+            ),
+          ),
+          child: Padding(
+            padding: _kIndicatorPadding,
+            child: Row(
+              crossAxisAlignment: .stretch,
+              children: <Widget>[
+                for (int i = 0; i < destinations.length; i++)
+                  Expanded(
+                    child: _SelectableAnimatedBuilder(
+                      duration: animationDuration,
+                      isSelected: i == selectedIndex,
+                      builder: (context, animation) {
+                        return _NavigationDestinationInfo(
+                          index: i,
+                          selectedIndex: selectedIndex,
+                          totalNumberOfDestinations: destinations.length,
+                          selectedAnimation: animation,
+                          labelBehavior: effectiveLabelBehavior,
+                          indicatorColor: indicatorColor,
+                          indicatorShape: indicatorShape,
+                          overlayColor: overlayColor,
+                          onTap: _handleTap(i),
+                          labelTextStyle: labelTextStyle,
+                          labelPadding: labelPadding,
+                          child: destinations[i],
+                        );
+                      },
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -724,7 +720,7 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
   late final _colors = Theme.of(context).colorScheme;
   late final _textTheme = Theme.of(context).textTheme;
 
-  BorderSide get borderSide => _colors.brightness.isDark
+  BorderSide get borderSide => _colors.isDark
       ? const BorderSide(color: Color(0x08FFFFFF))
       : const BorderSide(color: Color(0x08000000));
 
@@ -753,7 +749,7 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
 
   @override
   Color? get indicatorColor =>
-      _colors.brightness.isDark ? _indicatorDark : _indicatorLight;
+      _colors.isDark ? _indicatorDark : _indicatorLight;
 
   @override
   ShapeBorder? get indicatorShape => const StadiumBorder();

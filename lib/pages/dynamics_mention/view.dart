@@ -1,37 +1,40 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:PiliPlus/common/widgets/flutter/draggable_sheet/draggable_scrollable_sheet_topic.dart'
-    as topic_sheet;
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
+import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_mention/group.dart';
+import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliPlus/pages/dynamics_mention/controller.dart';
 import 'package:PiliPlus/pages/dynamics_mention/widgets/item.dart';
 import 'package:PiliPlus/pages/search/controller.dart' show DebounceStreamState;
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DynMentionPanel extends StatefulWidget {
   const DynMentionPanel({
     super.key,
     this.scrollController,
     this.onCachePos,
+    this.top,
   });
 
   final ScrollController? scrollController;
   final ValueChanged<double>? onCachePos;
+  final MentionItem? top;
 
   static Future<Object? /* ListOr<MentionItem> */> onDynMention(
     BuildContext context, {
     double offset = 0,
     ValueChanged<double>? onCachePos,
+    MentionItem? top,
   }) {
     return showModalBottomSheet(
       context: Get.context!,
@@ -40,7 +43,7 @@ class DynMentionPanel extends StatefulWidget {
       constraints: BoxConstraints(
         maxWidth: min(600, context.mediaQueryShortestSide),
       ),
-      builder: (context) => topic_sheet.DraggableScrollableSheet(
+      builder: (context) => DraggableScrollableSheet(
         expand: false,
         snap: true,
         minChildSize: 0,
@@ -51,6 +54,7 @@ class DynMentionPanel extends StatefulWidget {
         builder: (context, scrollController) => DynMentionPanel(
           scrollController: scrollController,
           onCachePos: onCachePos,
+          top: top,
         ),
       ),
     );
@@ -87,7 +91,6 @@ class _DynMentionPanelState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final padding = MediaQuery.paddingOf(context).bottom;
-    final viewInset = MediaQuery.viewInsetsOf(context).bottom;
     return Column(
       children: [
         SizedBox(
@@ -125,10 +128,7 @@ class _DynMentionPanelState
                 padding: EdgeInsets.only(left: 12, right: 4),
                 child: Icon(Icons.search, size: 20),
               ),
-              prefixIconConstraints: const BoxConstraints(
-                minHeight: 0,
-                minWidth: 0,
-              ),
+              prefixIconConstraints: const .new(minHeight: 0, minWidth: 0),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 6,
@@ -171,42 +171,38 @@ class _DynMentionPanelState
           ),
         ),
         Expanded(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is UserScrollNotification) {
-                    if (_controller.focusNode.hasFocus) {
-                      _controller.focusNode.unfocus();
-                    }
-                  } else if (notification is ScrollEndNotification) {
-                    widget.onCachePos?.call(notification.metrics.pixels);
+          child: ScaffoldLayout(
+            body: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is UserScrollNotification) {
+                  if (_controller.focusNode.hasFocus) {
+                    _controller.focusNode.unfocus();
                   }
-                  return false;
-                },
-                child: customScrollView(
-                  controller: widget.scrollController,
-                  slivers: [
-                    Obx(
-                      () => _buildBody(theme, _controller.loadingState.value),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(height: padding + viewInset + 100),
-                    ),
-                  ],
-                ),
+                } else if (notification is ScrollEndNotification) {
+                  widget.onCachePos?.call(notification.metrics.pixels);
+                }
+                return false;
+              },
+              child: CustomScrollView(
+                controller: widget.scrollController,
+                slivers: [
+                  Obx(
+                    () => _buildBody(theme, _controller.loadingState.value),
+                  ),
+                  SliverToBoxAdapter(child: SizedBox(height: padding + 100)),
+                ],
               ),
-              Obx(() {
-                return Positioned(
+            ),
+            fab: Obx(() {
+              return Padding(
+                padding: .only(
                   right: kFloatingActionButtonMargin,
-                  bottom:
-                      padding +
-                      kFloatingActionButtonMargin +
-                      (_controller.showBtn.value ? viewInset : 0),
+                  bottom: kFloatingActionButtonMargin + padding,
+                ),
+                child: ViewInsetsSafeArea(
                   child: AnimatedSlide(
                     offset: _controller.showBtn.value
-                        ? Offset.zero
+                        ? .zero
                         : const Offset(0, 3),
                     duration: const Duration(milliseconds: 120),
                     child: FloatingActionButton(
@@ -221,9 +217,9 @@ class _DynMentionPanelState
                       child: const Icon(Icons.check),
                     ),
                   ),
-                );
-              }),
-            ],
+                ),
+              );
+            }),
           ),
         ),
       ],
@@ -242,37 +238,51 @@ class _DynMentionPanelState
       Success<List<MentionGroup>?>(:final response) =>
         response != null && response.isNotEmpty
             ? SliverMainAxisGroup(
-                slivers: response.map((group) {
-                  if (group.items.isNullOrEmpty) {
-                    return const SliverToBoxAdapter();
-                  }
-                  return SliverMainAxisGroup(
-                    slivers: [
-                      SliverPinnedHeader(
-                        backgroundColor: theme.colorScheme.surface,
+                slivers: [
+                  if (_controller.controller.text.isEmpty)
+                    if (widget.top case final top?)
+                      SliverToBoxAdapter(
                         child: Padding(
-                          padding: const .symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                          padding: const .only(top: 5),
+                          child: DynMentionItem(
+                            item: top,
+                            onTap: () => Get.back(result: top),
                           ),
-                          child: Text(group.groupName!),
                         ),
                       ),
-                      SliverList.builder(
-                        itemCount: group.items!.length,
-                        itemBuilder: (context, index) {
-                          final item = group.items![index];
-                          return DynMentionItem(
-                            item: item,
-                            onTap: () => Get.back(result: item),
-                            onCheck: (value) =>
-                                _controller.onCheck(value, item),
-                          );
-                        },
-                      ),
-                    ],
-                  );
-                }).toList(),
+                  ...response.map((group) {
+                    if (group.items.isNullOrEmpty) {
+                      return const SliverToBoxAdapter();
+                    }
+                    return SliverMainAxisGroup(
+                      slivers: [
+                        SliverPinnedHeader(
+                          backgroundColor:
+                              theme.bottomSheetTheme.backgroundColor,
+                          child: Padding(
+                            padding: const .symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Text(group.groupName!),
+                          ),
+                        ),
+                        SliverList.builder(
+                          itemCount: group.items!.length,
+                          itemBuilder: (context, index) {
+                            final item = group.items![index];
+                            return DynMentionItem(
+                              item: item,
+                              onTap: () => Get.back(result: item),
+                              onCheck: (value) =>
+                                  _controller.onCheck(value, item),
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  }),
+                ],
               )
             : HttpError(onReload: _controller.onReload),
       Error(:final errMsg) => HttpError(

@@ -3,15 +3,13 @@ import 'dart:io';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/common/badge_type.dart';
-import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliPlus/pages/video/introduction/local/controller.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
 class LocalIntroPanel extends StatefulWidget {
@@ -42,7 +40,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
           final item = _controller.list[index];
           return _buildItem(theme, currIndex == index, index, item);
         },
-        itemExtent: 100,
+        itemExtent: 112,
       );
     });
   }
@@ -59,7 +57,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: SizedBox(
-        height: 98,
+        height: 110,
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
@@ -85,15 +83,15 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                               borderRadius: Style.mdRadius,
                               child: Image.file(
                                 cover,
-                                width: 140.8,
-                                height: 88,
+                                width: 160,
+                                height: 100,
                                 fit: BoxFit.cover,
                                 cacheWidth: cacheWidth
-                                    ? 140.8.cacheSize(context)
+                                    ? 160.cacheSize(context)
                                     : null,
                                 cacheHeight: cacheWidth
                                     ? null
-                                    : 88.cacheSize(context),
+                                    : 100.cacheSize(context),
                                 colorBlendMode: NetworkImgLayer.reduce
                                     ? BlendMode.modulate
                                     : null,
@@ -104,8 +102,8 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                             )
                           : NetworkImgLayer(
                               src: entry.cover,
-                              width: 140.8,
-                              height: 88,
+                              width: 160,
+                              height: 100,
                             ),
                       PBadge(
                         text: DurationUtils.formatDuration(
@@ -113,15 +111,9 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                         ),
                         right: 6.0,
                         bottom: 6.0,
-                        type: PBadgeType.gray,
+                        type: .gray,
                       ),
-                      if (entry.videoQuality case final videoQuality?)
-                        PBadge(
-                          text: VideoQuality.fromCode(videoQuality).shortDesc,
-                          right: 6.0,
-                          top: 6.0,
-                          type: PBadgeType.gray,
-                        ),
+                      entry.qaBadge,
                     ],
                   ),
                   Expanded(
@@ -185,7 +177,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                           ),
                         Align(
                           alignment: Alignment.bottomRight,
-                          child: entry.moreBtn(theme),
+                          child: entry.moreBtn(theme.colorScheme),
                         ),
                       ],
                     ),

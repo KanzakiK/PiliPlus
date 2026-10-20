@@ -1,7 +1,7 @@
 import 'package:PiliPlus/common/widgets/custom_arc.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ActionItem extends StatelessWidget {
   const ActionItem({
@@ -44,6 +44,7 @@ class ActionItem extends StatelessWidget {
       selectStatus ? selectIcon!.icon! : icon.icon,
       size: 18,
       color: selectStatus ? primary : icon.color ?? colorScheme.outline,
+      semanticLabel: semanticsLabel,
     );
 
     if (animation != null) {
@@ -53,11 +54,8 @@ class ActionItem extends StatelessWidget {
         children: [
           AnimatedBuilder(
             animation: animation!,
-            builder: (context, child) => Arc(
-              size: 28,
-              color: primary,
-              progress: -animation!.value,
-            ),
+            builder: (context, child) =>
+                Arc(size: 28, color: primary, progress: -animation!.value),
           ),
           child,
         ],
@@ -69,7 +67,7 @@ class ActionItem extends StatelessWidget {
     child = Material(
       type: .transparency,
       child: InkWell(
-        borderRadius: const BorderRadius.all(Radius.circular(6)),
+        borderRadius: const .all(.circular(6)),
         onTap: _isThumbsUp ? null : onTap,
         onLongPress: _isThumbsUp ? null : onLongPress,
         onSecondaryTap: PlatformUtils.isMobile || _isThumbsUp
@@ -104,9 +102,8 @@ class ActionItem extends StatelessWidget {
     if (hasText) {
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return ScaleTransition(scale: animation, child: child);
-        },
+        transitionBuilder: (child, animation) =>
+            ScaleTransition(scale: animation, child: child),
         child: child,
       );
     }

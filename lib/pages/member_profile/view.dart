@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:io' show File;
 
 import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -24,12 +25,12 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mime/mime.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -45,12 +46,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late final TextEditingController _textController;
   late final _imagePicker = ImagePicker();
   AccountService accountService = Get.find<AccountService>();
+  late ThemeData theme;
 
   @override
   void initState() {
     super.initState();
     _textController = TextEditingController();
     _getInfo();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    theme = Theme.of(context);
   }
 
   @override
@@ -61,11 +69,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(title: const Text('账号资料')),
-      body: _buildBody(theme, _loadingState),
+      body: _buildBody(),
     );
   }
 
@@ -113,10 +119,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
   }
 
-  Widget _buildBody(
-    ThemeData theme,
-    LoadingState<AccountMyInfoData> loadingState,
-  ) {
+  Widget _buildBody() {
     late final divider = Divider(
       height: 1,
       color: theme.dividerColor.withValues(alpha: 0.1),
@@ -127,16 +130,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
       color: theme.dividerColor.withValues(alpha: 0.1),
     );
 
-    return switch (loadingState) {
+    return switch (_loadingState) {
       Loading() => m3eLoading,
-      Success(:final response) => listView(
+      Success(:final response) => ListView(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewPaddingOf(context).bottom + 25,
         ),
         children: [
           divider1,
           _item(
-            theme: theme,
             title: '头像',
             widget: Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
@@ -150,14 +152,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
             onTap: () => EasyThrottle.throttle(
               'imagePicker',
               const Duration(milliseconds: 500),
-              () {
-                _pickImg(theme);
-              },
+              _pickImg,
             ),
           ),
           divider,
           _item(
-            theme: theme,
             title: '昵称',
             text: response.name,
             onTap: () {
@@ -174,7 +173,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider,
           _item(
-            theme: theme,
             title: '性别',
             text: _sex(response.sex!),
             onTap: () => showDialog(
@@ -184,7 +182,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider,
           _item(
-            theme: theme,
             title: '出生年月',
             text: response.birthday,
             onTap: () =>
@@ -204,7 +201,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider,
           _item(
-            theme: theme,
             title: '个性签名',
             text: response.sign,
             onTap: () => _editDialog(
@@ -215,7 +211,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider1,
           _item(
-            theme: theme,
             title: '头像挂件',
             onTap: () => PageUtils.inAppWebview(
               'https://www.bilibili.com/h5/mall/pendant/home',
@@ -223,7 +218,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider1,
           _item(
-            theme: theme,
             title: 'UID',
             needIcon: false,
             text: response.mid.toString(),
@@ -231,7 +225,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           divider1,
           _item(
-            theme: theme,
             title: '哔哩哔哩认证',
             onTap: () => PageUtils.inAppWebview(
               'https://account.bilibili.com/official/mobile/home',
@@ -248,17 +241,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _sexDialog(int current) {
-    return AlertDialog(
+    return SimpleDialog(
       clipBehavior: Clip.hardEdge,
       contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sexDialogItem(1, current, '男'),
-          _sexDialogItem(0, current, '保密'),
-          _sexDialogItem(2, current, '女'),
-        ],
-      ),
+      children: [
+        _sexDialogItem(1, current, '男'),
+        _sexDialogItem(0, current, '保密'),
+        _sexDialogItem(2, current, '女'),
+      ],
     );
   }
 
@@ -427,7 +417,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _item({
-    required ThemeData theme,
     required String title,
     Widget? widget,
     String? text,
@@ -474,21 +463,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Future<void> _pickImg(ThemeData theme) async {
+  Future<void> _pickImg() async {
     try {
-      XFile? pickedFile = await _imagePicker.pickImage(
+      final pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
+        requestFullMetadata: false,
       );
       if (pickedFile != null && mounted) {
-        String? mimeType = lookupMimeType(
-          pickedFile.path,
-        )?.split('/').elementAtOrNull(1);
+        String? imagePath = pickedFile.path;
+        String? mimeType = (pickedFile.mimeType ?? lookupMimeType(imagePath))
+            ?.split('/')
+            .elementAtOrNull(1);
         if (mimeType == 'gif') {
           SmartDialog.showToast('不能选GIF');
           return;
         }
-        String? imagePath = pickedFile.path;
         if (PlatformUtils.isMobile) {
           final croppedFile = await ImageCropper.platform.cropImage(
             sourcePath: imagePath,
@@ -497,7 +487,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 toolbarTitle: '裁剪',
                 toolbarColor: theme.colorScheme.secondaryContainer,
                 toolbarWidgetColor: theme.colorScheme.onSecondaryContainer,
-                statusBarLight: theme.colorScheme.isLight,
+                statusBarLight: theme.isLight,
                 aspectRatioPresets: const [CropAspectRatioPresetCustom()],
                 lockAspectRatio: true,
                 hideBottomControls: true,
@@ -533,7 +523,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               .then((res) {
                 if (res.data['code'] == 0) {
                   SmartDialog.showToast('修改成功');
-                  Future.delayed(const Duration(milliseconds: 500), () {
+                  Timer(const Duration(milliseconds: 500), () {
                     if (mounted) {
                       _getInfo();
                     }

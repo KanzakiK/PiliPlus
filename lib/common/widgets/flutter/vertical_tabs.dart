@@ -2,16 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole, lerpDouble;
 
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DragStartBehavior;
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:material_ui/material_ui.dart' hide TabBar;
 
 const double _kTabWidth = 51.0;
 const double _kTextAndIconTabWidth = 72.0;
@@ -272,12 +274,11 @@ class _TabStyle extends AnimatedWidget {
   }
 }
 
-typedef _LayoutCallback =
-    void Function(
-      List<double> yOffsets,
-      TextDirection textDirection,
-      double width,
-    );
+typedef _LayoutCallback = void Function(
+  List<double> yOffsets,
+  TextDirection textDirection,
+  double width,
+);
 
 class _TabLabelBarRenderer extends RenderFlex {
   _TabLabelBarRenderer({

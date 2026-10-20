@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -7,8 +6,8 @@ import 'package:PiliPlus/models/model_hot_video_item.dart';
 import 'package:PiliPlus/pages/rank/zone/controller.dart';
 import 'package:PiliPlus/pages/rank/zone/widget/pgc_rank_item.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ZonePage extends StatefulWidget {
   const ZonePage({super.key, this.rid, this.seasonType});
@@ -41,7 +40,7 @@ class _ZonePageState extends State<ZonePage>
     super.build(context);
     return refreshIndicator(
       onRefresh: controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         controller: controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

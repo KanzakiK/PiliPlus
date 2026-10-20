@@ -1,26 +1,23 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
+import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart' hide LayoutBuilder;
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
 class VideoCardVMemberHome extends StatelessWidget {
   final SpaceArchiveItem videoItem;
 
-  const VideoCardVMemberHome({
-    super.key,
-    required this.videoItem,
-  });
+  const VideoCardVMemberHome(this.videoItem, {super.key});
 
   Future<void> onPushDetail() async {
     String? goto = videoItem.goto;
@@ -44,13 +41,22 @@ class VideoCardVMemberHome extends StatelessWidget {
         }
 
         bvid ??= IdUtils.av2bv(int.parse(aid!));
-        int? cid = videoItem.cid ?? await SearchHttp.ab2c(aid: aid, bvid: bvid);
+        int? cid = videoItem.cid;
+        Dimension? dimension;
+        if (cid == null) {
+          if (await SearchHttp.ab2cWithDimension(aid: aid, bvid: bvid)
+              case final res?) {
+            cid = res.cid;
+            dimension = res.dimension;
+          }
+        }
         if (cid != null) {
           PageUtils.toVideoPage(
             bvid: bvid,
             cid: cid,
             cover: videoItem.cover,
             title: videoItem.title,
+            dimension: dimension,
           );
         }
         break;
@@ -71,11 +77,11 @@ class VideoCardVMemberHome extends StatelessWidget {
       bvid: videoItem.bvid,
     );
     return Card(
-      clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: onPushDetail,
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        borderRadius: const .all(.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -92,7 +98,7 @@ class VideoCardVMemberHome extends StatelessWidget {
                         src: videoItem.cover,
                         width: maxWidth,
                         height: maxHeight,
-                        type: .emote,
+                        borderRadius: const .vertical(top: .circular(12)),
                       ),
                       if (videoItem.duration > 0)
                         PBadge(

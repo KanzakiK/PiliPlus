@@ -1,38 +1,45 @@
+import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
+import 'package:PiliPlus/models/common/later_view_type.dart';
+import 'package:PiliPlus/models/common/mine_tab_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/user/info.dart';
 import 'package:PiliPlus/models/user/stat.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
-import 'package:PiliPlus/pages/common/common_data_controller.dart';
+import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
+import 'package:PiliPlus/models_new/history/data.dart';
+import 'package:PiliPlus/models_new/history/list.dart';
+import 'package:PiliPlus/models_new/later/data.dart';
+import 'package:PiliPlus/models_new/later/list.dart';
+import 'package:PiliPlus/models_new/sub/sub/data.dart';
+import 'package:PiliPlus/models_new/sub/sub/list.dart';
+import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
 
-class MineController extends CommonDataController<FavFolderData, FavFolderData>
-    with AccountMixin {
+class MineController extends GetxController with AccountMixin {
   @override
   AccountService accountService = Get.find<AccountService>();
-
-  int? favFolderCount;
 
   // 用户信息 头像、昵称、lv
   final Rx<UserInfoData> userInfo = UserInfoData().obs;
   // 用户状态 动态、关注、粉丝
   final Rx<UserStat> userStat = const UserStat().obs;
 
-  Rx<ThemeType> themeType = Pref.themeType.obs;
+  final Rx<ThemeType> themeType = Pref.themeType.obs;
 
   ThemeType get nextThemeType =>
       ThemeType.values[(themeType.value.index + 1) % ThemeType.values.length];
@@ -40,64 +47,83 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   static RxBool anonymity =
       (Accounts.account.isNotEmpty && !Accounts.heartbeat.isLogin).obs;
 
-  late final list =
-      <({IconData icon, double size, String title, VoidCallback onTap})>[
-        (
-          size: 23,
-          icon: MdiIcons.folderDownloadOutline,
-          title: '离线缓存',
-          onTap: () => Get.toNamed('/download'),
-        ),
-        (
-          size: 23,
-          icon: Icons.history,
-          title: '观看记录',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/history');
-            }
-          },
-        ),
-        (
-          size: 20,
-          icon: Icons.subscriptions_outlined,
-          title: '我的订阅',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/subscription');
-            }
-          },
-        ),
-        (
-          size: 22,
-          icon: Icons.watch_later_outlined,
-          title: '稍后再看',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/later');
-            }
-          },
-        ),
-      ];
+  late final list = <({IconData icon, String title, VoidCallback onTap})>[
+    (
+      icon: CustomIcons.folderDownloadOutline,
+      title: '离线缓存',
+      onTap: () => Get.toNamed('/download'),
+    ),
+    (
+      icon: CustomIcons.history,
+      title: '观看记录',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/history');
+        }
+      },
+    ),
+    (
+      icon: CustomIcons.subscriptions_outlined,
+      title: '我的订阅',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/subscription');
+        }
+      },
+    ),
+    (
+      icon: CustomIcons.watch_later_outlined,
+      title: '稍后再看',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/later');
+        }
+      },
+    ),
+  ];
+
+  late final Set<MineTabType> mineTabs;
+  FavCtr? favCtr;
+  HistoryCtr? historyCtr;
+  LaterCtr? laterCtr;
+  SubCtr? subCtr;
+
+  Iterable<MineRefreshMixin> tabCtr() sync* {
+    if (favCtr != null) yield favCtr!;
+    if (historyCtr != null) yield historyCtr!;
+    if (laterCtr != null) yield laterCtr!;
+    if (subCtr != null) yield subCtr!;
+  }
+
+  void _initTabs() {
+    mineTabs = Pref.mineTabs;
+    for (final tab in mineTabs) {
+      switch (tab) {
+        case .favorite:
+          favCtr = FavCtr();
+        case .history:
+          historyCtr = HistoryCtr();
+        case .later:
+          laterCtr = LaterCtr();
+        case .sub:
+          subCtr = SubCtr();
+      }
+    }
+  }
 
   @override
   void onInit() {
     super.onInit();
-    UserInfoData? userInfoCache = Pref.userInfoCache;
+    _initTabs();
+    final userInfoCache = Pref.userInfoCache;
     if (userInfoCache != null) {
       userInfo.value = userInfoCache;
-      queryData();
       queryUserInfo();
+      tabCtr().forEach((ctr) => ctr.queryData());
     }
   }
 
-  bool get isLogin {
-    if (!accountService.isLogin.value) {
-      // SmartDialog.showToast('账号未登录');
-      return false;
-    }
-    return true;
-  }
+  bool get isLogin => accountService.isLogin.value;
 
   Future<void> queryUserInfo() async {
     final res = await UserHttp.userInfo();
@@ -111,41 +137,27 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
           ..face.value = response.face!
           ..isLogin.value = true;
       } else {
-        LoginUtils.onLogoutMain();
+        _onLogoutMain();
         return;
       }
     } else {
       final errMsg = res.toString();
       SmartDialog.showToast(errMsg);
       if (errMsg == '账号未登录') {
-        LoginUtils.onLogoutMain();
+        _onLogoutMain();
         return;
       }
     }
     queryUserStatOwner();
   }
 
+  void _onLogoutMain() => Accounts.deleteAll({Accounts.main});
+
   Future<void> queryUserStatOwner() async {
     final res = await UserHttp.userStatOwner();
     if (res case Success(:final response)) {
       userStat.value = response;
     }
-  }
-
-  @override
-  bool customHandleResponse(bool isRefresh, Success<FavFolderData> response) {
-    favFolderCount = response.response.count;
-    loadingState.value = response;
-    return true;
-  }
-
-  @override
-  Future<LoadingState<FavFolderData>> customGetData() {
-    return FavHttp.userfavFolder(
-      pn: 1,
-      ps: 20,
-      mid: Accounts.main.mid,
-    );
   }
 
   static void onChangeAnonymity() {
@@ -189,9 +201,11 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '搜索、观看视频/直播不携带身份信息（包含大会员）\n'
+                    '搜索不携带身份信息\n'
                     '不产生查询或播放记录\n'
                     '点赞等其它操作不受影响\n'
+                    '播放进度信息跟随视频取流\n'
+                    '上次观看分p信息跟随主账号\n'
                     '(前往隐私设置了解详情)',
                     style: theme.textTheme.bodySmall,
                   ),
@@ -266,7 +280,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     final newVal = nextThemeType;
     themeType.value = newVal;
     GStorage.setting.put(SettingBoxKey.themeMode, newVal.index);
-    Get.changeThemeMode(newVal.toThemeMode);
+    Get.changeThemeMode(ThemeUtils.themeMode = newVal.toThemeMode);
   }
 
   void push(String name) {
@@ -284,17 +298,16 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     }
   }
 
-  @override
   Future<void> onRefresh({bool isManual = true}) {
     if (!accountService.isLogin.value) {
       return Future.syncValue(null);
     }
-    queryUserInfo();
-    return super.onRefresh().whenComplete(() {
-      if (isManual) {
-        scrollController.jumpToTop();
-      }
-    });
+    if (isManual) {
+      queryUserInfo();
+    }
+    return Future.wait(
+      tabCtr().map((ctr) => ctr.onRefresh(isManual: isManual)),
+    );
   }
 
   @override
@@ -304,7 +317,117 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     } else {
       userInfo.value = UserInfoData();
       userStat.value = const UserStat();
-      loadingState.value = LoadingState.loading();
+      tabCtr().forEach(
+        (ctr) => ctr.loadingState.value = LoadingState.loading(),
+      );
     }
   }
+}
+
+const _ps = 20;
+
+mixin MineRefreshMixin<R, T> on CommonListController<R, T> {
+  int? count;
+
+  @override
+  void checkIsEnd(int length) {
+    if (count != null && length >= count!) {
+      isEnd = true;
+    }
+  }
+
+  @override
+  Future<void> onRefresh({bool isManual = true}) {
+    count = null;
+    if (isManual) {
+      return super.onRefresh().whenComplete(scrollController.jumpToTop);
+    }
+    return super.onRefresh();
+  }
+}
+
+class FavCtr extends CommonListController<FavFolderData, FavFolderInfo>
+    with MineRefreshMixin {
+  @override
+  List<FavFolderInfo>? getDataList(FavFolderData response) {
+    count = response.count;
+    if (response.hasMore == false) isEnd = true;
+    return response.list;
+  }
+
+  @override
+  Future<LoadingState<FavFolderData>> customGetData() => FavHttp.userfavFolder(
+    pn: page,
+    ps: _ps,
+    mid: Accounts.main.mid,
+  );
+}
+
+class HistoryCtr extends CommonListController<HistoryData, HistoryItemModel>
+    with MineRefreshMixin {
+  int? viewAt;
+  int? max;
+
+  @override
+  List<HistoryItemModel>? getDataList(HistoryData response) {
+    final last = response.list?.lastOrNull;
+    if (last == null) {
+      isEnd = true;
+      max = viewAt = null;
+    } else {
+      isEnd = false;
+      max = last.history.oid;
+      viewAt = last.viewAt;
+    }
+    return response.list;
+  }
+
+  @override
+  Future<LoadingState<HistoryData>> customGetData() => UserHttp.historyList(
+    type: 'all',
+    viewAt: viewAt,
+    max: max,
+    ps: _ps,
+    account: Accounts.history,
+  );
+
+  @override
+  Future<void> onRefresh({bool isManual = true}) {
+    viewAt = null;
+    max = null;
+    return super.onRefresh(isManual: isManual);
+  }
+}
+
+class LaterCtr extends CommonListController<LaterData, LaterItemModel>
+    with MineRefreshMixin {
+  @override
+  List<LaterItemModel>? getDataList(LaterData response) {
+    count = response.count;
+    return response.list;
+  }
+
+  @override
+  Future<LoadingState<LaterData>> customGetData() => UserHttp.seeYouLater(
+    page: page,
+    ps: _ps,
+    viewed: LaterViewType.all.type,
+  );
+}
+
+class SubCtr extends CommonListController<SubData, SubItemModel>
+    with MineRefreshMixin {
+  @override
+  List<SubItemModel>? getDataList(SubData response) {
+    count = response.count;
+    if (response.hasMore == false) isEnd = true;
+    return response.list;
+  }
+
+  @override
+  Future<LoadingState<SubData>> customGetData() => UserHttp.userSubFolder(
+    pn: page,
+    ps: _ps,
+    mid: Accounts.main.mid,
+  );
 }

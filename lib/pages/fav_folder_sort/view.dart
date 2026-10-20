@@ -1,11 +1,13 @@
+import 'package:PiliPlus/common/widgets/reorder_mixin.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/pages/fav/video/controller.dart';
 import 'package:PiliPlus/pages/fav/video/widgets/item.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavFolderSortPage extends StatefulWidget {
   const FavFolderSortPage({super.key, required this.favController});
@@ -16,18 +18,17 @@ class FavFolderSortPage extends StatefulWidget {
   State<FavFolderSortPage> createState() => _FavFolderSortPageState();
 }
 
-class _FavFolderSortPageState extends State<FavFolderSortPage> {
+class _FavFolderSortPageState extends State<FavFolderSortPage>
+    with ReorderMixin {
   FavController get _favController => widget.favController;
 
-  final GlobalKey _key = GlobalKey();
   late List<FavFolderInfo> sortList = List<FavFolderInfo>.from(
     _favController.loadingState.value.data!,
   );
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(
         title: const Text('收藏夹排序'),
         actions: [
@@ -39,7 +40,9 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
               if (res.isSuccess) {
                 SmartDialog.showToast('排序完成');
                 _favController.loadingState.value = Success(sortList);
-                Get.back();
+                if (mounted) {
+                  Get.back();
+                }
               } else {
                 res.toast();
               }
@@ -53,26 +56,21 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
     );
   }
 
-  void onReorder(int oldIndex, int newIndex) {
+  void onReorderItem(int oldIndex, int newIndex) {
     if (oldIndex == 0 || newIndex == 0) {
       SmartDialog.showToast('默认收藏夹不支持排序');
       return;
     }
 
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
-
-    final tabsItem = sortList.removeAt(oldIndex);
-    sortList.insert(newIndex, tabsItem);
+    sortList.insert(newIndex, sortList.removeAt(oldIndex));
 
     setState(() {});
   }
 
   Widget get _buildBody {
     return ReorderableListView.builder(
-      key: _key,
-      onReorder: onReorder,
+      onReorderItem: onReorderItem,
+      proxyDecorator: proxyDecorator,
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: sortList.length,
       padding:
@@ -83,7 +81,7 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
         final key = item.id.toString();
         return SizedBox(
           key: Key(key),
-          height: 98,
+          height: 110,
           child: FavVideoItem(
             heroTag: key,
             item: item,

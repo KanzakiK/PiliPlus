@@ -1,6 +1,6 @@
-import 'dart:convert' show jsonEncode;
 import 'dart:io' show Platform;
 
+import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
@@ -8,13 +8,16 @@ import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class ReplyUtils {
   static void onCheckReply({
@@ -53,11 +56,11 @@ abstract final class ReplyUtils {
     required int type,
     required int id,
     required String message,
-    dynamic root,
-    dynamic parent,
-    dynamic ctime,
-    List? pictures,
-    dynamic mid,
+    required int root,
+    required int parent,
+    required int ctime,
+    required List pictures,
+    required int mid,
     bool isManual = false,
     required bool biliSendCommAntifraud,
     required sourceId,
@@ -65,27 +68,24 @@ abstract final class ReplyUtils {
     // biliSendCommAntifraud
     if (Platform.isAndroid && biliSendCommAntifraud) {
       try {
-        final String cookieString = Accounts.main.cookieJar
+        final cookieString = Accounts.main.cookieJar
             .toJson()
             .entries
             .map((i) => '${i.key}=${i.value}')
             .join(';');
-        Utils.channel.invokeMethod(
-          'biliSendCommAntifraud',
-          {
-            'action': 0,
-            'oid': oid,
-            'type': type,
-            'rpid': id,
-            'root': root,
-            'parent': parent,
-            'ctime': ctime,
-            'comment_text': message,
-            if (pictures?.isNotEmpty == true) 'pictures': jsonEncode(pictures),
-            'source_id': '$sourceId',
-            'uid': mid,
-            'cookies': [cookieString],
-          },
+        PiliAndroidHelper.biliSendCommAntifraud(
+          0,
+          oid,
+          type,
+          id,
+          root,
+          parent,
+          ctime,
+          message,
+          pictures,
+          sourceId,
+          mid,
+          cookieString,
         );
       } catch (e) {
         if (kDebugMode) debugPrint('biliSendCommAntifraud: $e');
@@ -95,51 +95,78 @@ abstract final class ReplyUtils {
 
     // CommAntifraud
     if (!isManual) {
-      await Future.delayed(const Duration(seconds: 8));
+      await Future.pause(const Duration(seconds: 8));
     }
     void showReplyCheckResult(String message, {bool isBan = false}) {
-      final actions = [
-        if (isBan)
-          TextButton(
-            onPressed: () {
-              Get.back();
-              String? uri;
-              switch (type) {
-                case 1:
-                  uri = IdUtils.av2bv(oid);
-                case 17:
-                  uri = 'https://www.bilibili.com/opus/$oid';
-              }
-              if (uri != null) {
-                Utils.copyText(uri);
-              }
-              Get.toNamed(
-                '/webview',
-                parameters: {
-                  'url':
-                      'https://www.bilibili.com/h5/comment/appeal?${Utils.themeUrl(Get.isDarkMode)}',
-                },
-              );
-            },
-            child: const Text('申诉'),
-          ),
-        if (!isManual)
-          TextButton(
-            onPressed: Get.back,
-            child: Text(
-              '关闭',
-              style: TextStyle(color: Get.theme.colorScheme.outline),
-            ),
-          ),
-      ];
       showDialog(
         context: Get.context!,
         barrierDismissible: isManual,
-        builder: (context) => AlertDialog(
-          title: const Text('评论检查结果'),
-          content: SelectableText(message),
-          actions: actions.isEmpty ? null : actions,
-        ),
+        builder: (context) {
+          final colorScheme = ColorScheme.of(context);
+          final color = isBan ? colorScheme.error : colorScheme.primary;
+          final actions = [
+            if (isBan)
+              TextButton(
+                onPressed: () {
+                  Get.back();
+                  String? uri;
+                  switch (type) {
+                    case 1:
+                      uri = IdUtils.av2bv(oid);
+                    case 17:
+                      uri = 'https://www.bilibili.com/opus/$oid';
+                  }
+                  if (uri != null) {
+                    Utils.copyText(uri);
+                  }
+                  Get.toNamed(
+                    '/webview',
+                    parameters: {
+                      'url':
+                          'https://www.bilibili.com/h5/comment/appeal?${ThemeUtils.themeUrl(colorScheme.isDark)}',
+                    },
+                  );
+                },
+                child: const Text('申诉'),
+              ),
+            if (!isManual)
+              TextButton(
+                onPressed: Get.back,
+                child: Text(
+                  '关闭',
+                  style: TextStyle(color: colorScheme.outline),
+                ),
+              ),
+          ];
+          return AlertDialog(
+            title: Text.rich(
+              TextSpan(
+                children: [
+                  WidgetSpan(
+                    alignment: .middle,
+                    child: isBan
+                        ? Icon(
+                            size: 22,
+                            color: color,
+                            Icons.highlight_off_outlined,
+                          )
+                        : Icon(
+                            size: 22,
+                            color: color,
+                            Icons.check_circle_outline_rounded,
+                          ),
+                  ),
+                  TextSpan(
+                    text: ' 评论检查结果',
+                    style: TextStyle(color: color),
+                  ),
+                ],
+              ),
+            ),
+            content: SelectionText(message),
+            actions: actions.isEmpty ? null : actions,
+          );
+        },
       );
     }
 
@@ -233,7 +260,7 @@ https://api.bilibili.com/x/v2/reply/reply?oid=$oid&pn=1&ps=20&root=$id&type=$typ
           if (data.replies.isNullOrEmpty) {
             break;
           }
-          int index = data.replies?.indexWhere((item) => item.rpid == id) ?? -1;
+          int index = data.replies!.indexWhere((item) => item.rpid == id);
           if (index == -1) {
             // not found
           } else {
@@ -260,7 +287,7 @@ https://api.bilibili.com/x/v2/reply/reply?oid=$oid&pn=1&ps=20&root=$id&type=$typ
           if (data.replies.isNullOrEmpty) {
             break;
           }
-          int index = data.replies?.indexWhere((item) => item.rpid == id) ?? -1;
+          int index = data.replies!.indexWhere((item) => item.rpid == id);
           if (index == -1) {
             // not found
           } else {

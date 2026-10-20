@@ -1,10 +1,10 @@
-import 'dart:ui';
-
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/dial_prefix.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
@@ -14,11 +14,11 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -68,17 +68,16 @@ class _LoginPageState extends State<LoginPage> {
             TextButton.icon(
               onPressed: () async {
                 SmartDialog.showLoading(msg: '正在生成截图');
-                RenderRepaintBoundary boundary =
-                    globalKey.currentContext!.findRenderObject()!
+                final boundary =
+                    globalKey.currentContext!.findRenderObject()
                         as RenderRepaintBoundary;
                 final image = await boundary.toImage(pixelRatio: 3);
-                ByteData? byteData = await image.toByteData(
-                  format: ImageByteFormat.png,
-                );
-                Uint8List pngBytes = byteData!.buffer.asUint8List();
+                final byteData = await image.toByteData(format: .png);
+                final pngBytes = byteData!.buffer.asUint8List();
+                image.dispose();
                 SmartDialog.dismiss();
-                String picName =
-                    "${Constants.appName}_loginQRCode_${ImageUtils.time}";
+                final picName =
+                    "${Constants.appName}_loginQRCode_${_loginPageCtr.codeInfo.value.data.authCode.hashCode.toUnsigned(32).toRadixString(16)}";
                 ImageUtils.saveByteImg(bytes: pngBytes, fileName: picName);
               },
               icon: const Icon(Icons.save),
@@ -298,8 +297,7 @@ class _LoginPageState extends State<LoginPage> {
                           ..toNamed(
                             '/webview',
                             parameters: {
-                              'url':
-                                  'https://passport.bilibili.com/h5-app/passport/login/findPassword',
+                              'url': 'https://passport.bilibili.com/h5-app/passport/login/findPassword',
                               'type': 'url',
                               'pageTitle': '忘记密码',
                             },
@@ -319,8 +317,7 @@ class _LoginPageState extends State<LoginPage> {
                           ..toNamed(
                             '/webview',
                             parameters: {
-                              'url':
-                                  'https://passport.bilibili.com/pc/passport/findPassword',
+                              'url': 'https://passport.bilibili.com/pc/passport/findPassword',
                               'type': 'url',
                               'pageTitle': '忘记密码',
                               'uaType': 'pc',
@@ -518,7 +515,7 @@ class _LoginPageState extends State<LoginPage> {
         MediaQuery.viewPaddingOf(context).copyWith(top: 0) +
         const EdgeInsets.only(bottom: 25);
     final isLandscape = !MediaQuery.sizeOf(context).isPortrait;
-    return Scaffold(
+    return SimpleScaffold(
       appBar: AppBar(
         leading: IconButton(
           tooltip: '关闭',
@@ -570,34 +567,41 @@ class _LoginPageState extends State<LoginPage> {
               ),
           ],
         ),
-        bottom: !isLandscape
-            ? TabBar(
-                tabs: const [
-                  Tab(icon: Icon(Icons.password), text: '密码'),
-                  Tab(icon: Icon(Icons.sms_outlined), text: '短信'),
-                  Tab(icon: Icon(Icons.qr_code), text: '扫码'),
-                  Tab(icon: Icon(Icons.cookie_outlined), text: 'Cookie'),
-                ],
-                controller: _loginPageCtr.tabController,
-              )
-            : null,
       ),
-      body: NotificationListener<ScrollStartNotification>(
-        onNotification: (notification) {
-          if (notification.metrics.axis == Axis.horizontal) {
-            FocusScope.of(context).unfocus();
-          }
-          return false;
-        },
-        child: tabBarView(
-          controller: _loginPageCtr.tabController,
-          children: [
-            tabViewOuter(loginByPassword(theme)),
-            tabViewOuter(loginBySmS(theme)),
-            tabViewOuter(loginByQRCode(theme)),
-            tabViewOuter(loginByCookie(theme)),
-          ],
-        ),
+      body: Column(
+        children: [
+          if (!isLandscape)
+            TabBar(
+              tabs: const [
+                Tab(icon: Icon(Icons.password), text: '密码'),
+                Tab(icon: Icon(Icons.sms_outlined), text: '短信'),
+                Tab(icon: Icon(Icons.qr_code), text: '扫码'),
+                Tab(icon: Icon(Icons.cookie_outlined), text: 'Cookie'),
+              ],
+              controller: _loginPageCtr.tabController,
+            ),
+          Expanded(
+            child: NotificationListener<ScrollStartNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.axis == Axis.horizontal) {
+                  FocusScope.of(context).unfocus();
+                }
+                return false;
+              },
+              child: ViewInsetsSafeArea(
+                child: tabBarView(
+                  controller: _loginPageCtr.tabController,
+                  children: [
+                    tabViewOuter(loginByPassword(theme)),
+                    tabViewOuter(loginBySmS(theme)),
+                    tabViewOuter(loginByQRCode(theme)),
+                    tabViewOuter(loginByCookie(theme)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

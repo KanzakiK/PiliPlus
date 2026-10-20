@@ -1,15 +1,20 @@
-import 'dart:math' show pi;
-
 import 'package:PiliPlus/common/skeleton/video_reply.dart';
+import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliPlus/pages/article/widgets/sliver_list.dart';
 import 'package:PiliPlus/pages/common/dyn/common_dyn_controller.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
+import 'package:PiliPlus/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -19,44 +24,104 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:easy_debounce/easy_throttle.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+enum DynType implements EnumWithLabel {
+  repost('转发'),
+  reply('评论'),
+  like('赞');
+
+  @override
+  final String label;
+  const DynType(this.label);
+}
+
+mixin DynReplyLocateStateMixin<T extends StatefulWidget>
+    on CommonDynPageMixin<T> {
+  DynReplyLocateMixin get dynReplyLocateCtr =>
+      controller as DynReplyLocateMixin;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    dynReplyLocateCtr.didChangeDependencies(context);
+  }
+
+  @override
+  Widget buildReply(BuildContext context, int index, ReplyInfo item) {
+    final child = super.buildReply(context, index, item);
+    final controller = dynReplyLocateCtr;
+    if (item.id == controller.targetRootRpId) {
+      final targetSecondRpId = controller.targetSecondRpId;
+      if (targetSecondRpId == null) {
+        return controller.colorAnimWrapper(theme.colorScheme, child);
+      } else {
+        controller
+          ..targetRootRpId = null
+          ..targetSecondRpId = null;
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => replyReply(context, item, targetSecondRpId),
+        );
+      }
+    }
+    return child;
+  }
+}
 
 abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
-    with SingleTickerProviderStateMixin, FabMixin {
-  CommonDynController get controller;
+    with
+        SingleTickerProviderStateMixin<T>,
+        BaseFabMixin,
+        FabMixin,
+        CommonDynPageMixin<T> {}
 
-  late final ScrollController scrollController;
+abstract class CommonDynPageMultiState<T extends StatefulWidget>
+    extends State<T>
+    with
+        TickerProviderStateMixin<T>,
+        BaseFabMixin,
+        FabMixin,
+        CommonDynPageMixin<T> {
+  late final TabController tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    tabController = TabController(
+      length: DynType.values.length,
+      initialIndex: DynType.reply.index,
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    tabController.dispose();
+    super.dispose();
+  }
+}
+
+mixin CommonDynPageMixin<T extends StatefulWidget>
+    on State<T>, TickerProvider, BaseFabMixin<T>, FabMixin<T> {
+  CommonDynController get controller;
+  bool get isArticle => false;
 
   bool get horizontalPreview => !isPortrait && controller.horizontalPreview;
 
   dynamic get arguments;
 
+  late ThemeData theme;
   late EdgeInsets padding;
   late bool isPortrait;
   late double maxWidth;
   late double maxHeight;
 
   @override
-  void initState() {
-    super.initState();
-    scrollController = ScrollController()..addListener(listener);
-  }
-
-  void listener() {
-    final pos = scrollController.positions;
-    controller.showTitle.value = pos.first.pixels > 55;
-    if (pos.any((e) => e.userScrollDirection == .forward)) {
-      showFab();
-    } else if (pos.any((e) => e.userScrollDirection == .reverse)) {
-      hideFab();
-    }
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final size = MediaQuery.sizeOf(context);
+    theme = Theme.of(context);
     maxWidth = size.width;
     maxHeight = size.height;
     isPortrait = size.isPortrait;
@@ -64,21 +129,21 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
   }
 
   @override
-  void dispose() {
-    scrollController
-      ..removeListener(listener)
-      ..dispose();
-    super.dispose();
+  bool onNotification(UserScrollNotification notification) {
+    if (notification.metrics.axisDirection == .down) {
+      return super.onNotification(notification);
+    }
+    return false;
   }
 
-  Widget buildReplyHeader(ThemeData theme) {
+  Widget buildReplyHeader() {
     final secondary = theme.colorScheme.secondary;
     return SliverPinnedHeader(
       backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const .fromLTRB(12, 2.5, 6, 2.5),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: .spaceBetween,
           children: [
             Obx(
               () {
@@ -94,7 +159,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
               icon: Icon(Icons.sort, size: 16, color: secondary),
               label: Obx(
                 () => Text(
-                  controller.sortType.value.label,
+                  controller.sortType.value.descShort,
                   style: TextStyle(fontSize: 13, color: secondary),
                 ),
               ),
@@ -105,132 +170,162 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
     );
   }
 
-  Widget replyList(
-    ThemeData theme,
-    LoadingState<List<ReplyInfo>?> loadingState,
-  ) {
-    return switch (loadingState) {
-      Loading() => SliverList.builder(
-        itemCount: 12,
-        itemBuilder: (context, index) => const VideoReplySkeleton(),
-      ),
-      Success(:final response) =>
-        response != null && response.isNotEmpty
-            ? SliverList.builder(
-                itemCount: response.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == response.length) {
-                    controller.onLoadMore();
-                    return Container(
-                      alignment: Alignment.center,
-                      margin: EdgeInsets.only(bottom: padding.bottom),
-                      height: 125,
-                      child: Text(
-                        controller.isEnd ? '没有更多了' : '加载中...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    );
-                  } else {
-                    return ReplyItemGrpc(
-                      replyItem: response[index],
-                      replyLevel: 1,
-                      replyReply: (replyItem, id) =>
-                          replyReply(context, replyItem, id, theme),
-                      onReply: controller.onReply,
-                      onDelete: (item, subIndex) =>
-                          controller.onRemove(index, item, subIndex),
-                      upMid: controller.upMid,
-                      onViewImage: hideFab,
-                      onCheckReply: (item) =>
-                          controller.onCheckReply(item, isManual: true),
-                      onToggleTop: (item) => controller.onToggleTop(
-                        item,
-                        index,
-                        controller.oid,
-                        controller.replyType,
-                      ),
-                    );
-                  }
-                },
-              )
-            : HttpError(
-                errMsg: '还没有评论',
-                onReload: controller.onReload,
-              ),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: controller.onReload,
-      ),
-    };
-  }
-
-  void replyReply(
-    BuildContext context,
-    ReplyInfo replyItem,
-    int? id,
-    ThemeData theme,
-  ) {
-    EasyThrottle.throttle('replyReply', const Duration(milliseconds: 500), () {
-      int oid = replyItem.oid.toInt();
-      int rpid = replyItem.id.toInt();
-      Widget replyReplyPage({bool showBackBtn = true}) {
-        final child = ViewSafeArea(
-          left: showBackBtn,
-          right: showBackBtn,
-          child: VideoReplyReplyPanel(
-            enableSlide: false,
-            id: id,
-            oid: oid,
-            rpid: rpid,
-            isVideoDetail: !showBackBtn,
-            replyType: controller.replyType,
-            firstFloor: replyItem,
-            upMid: controller.upMid,
+  Widget replyList(LoadingState<List<ReplyInfo>?> loadingState) {
+    switch (loadingState) {
+      case Loading():
+        return const SliverPrototypeExtentList(
+          prototypeItem: VideoReplySkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 12,
+            child: VideoReplySkeleton(),
           ),
         );
-        if (showBackBtn) {
-          return Scaffold(
-            resizeToAvoidBottomInset: false,
-            appBar: AppBar(
-              title: const Text('评论详情'),
-              shape: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outline.withValues(alpha: 0.1),
-                ),
+      case Success(:final response):
+        if (response != null && response.isNotEmpty) {
+          var count = response.length + 1;
+          final voteCard = controller.voteCard;
+          final hasVote = voteCard != null;
+          if (hasVote) {
+            count++;
+          }
+          return ArticleSliverList.builder(
+            itemCount: count,
+            isArticle: isArticle,
+            itemBuilder: (context, index) {
+              if (hasVote) {
+                if (index == 0) {
+                  return buildVoteCard(context, theme.colorScheme, voteCard);
+                } else {
+                  index--;
+                }
+              }
+              if (index == response.length) {
+                controller.onLoadMore();
+                return Container(
+                  alignment: Alignment.center,
+                  margin: EdgeInsets.only(bottom: padding.bottom),
+                  height: 125,
+                  child: Text(
+                    controller.isEnd ? '没有更多了' : '加载中...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                );
+              } else {
+                return buildReply(context, index, response[index]);
+              }
+            },
+          );
+        }
+
+        final child = httpError(
+          errMsg: '还没有评论',
+          onReload: controller.onReload,
+        );
+        if (controller.voteCard case final voteCard?) {
+          return SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: buildVoteCard(context, theme.colorScheme, voteCard),
               ),
-            ),
-            body: child,
+              child,
+            ],
           );
         }
         return child;
-      }
-
-      if (isPortrait) {
-        Get.to(
-          replyReplyPage,
-          routeName: 'dynamicDetail-Copy',
-          arguments: arguments,
+      case Error(:final errMsg):
+        return httpError(
+          errMsg: errMsg,
+          onReload: controller.onReload,
         );
-      } else {
-        final scaffoldState = Scaffold.maybeOf(context);
-        if (scaffoldState != null) {
-          hideFab();
-          scaffoldState.showBottomSheet(
-            backgroundColor: Colors.transparent,
-            (context) => replyReplyPage(showBackBtn: false),
-          );
-        } else {
-          Get.to(
-            replyReplyPage,
-            routeName: 'dynamicDetail-Copy',
-            arguments: arguments,
-          );
-        }
+    }
+  }
+
+  Widget buildReply(BuildContext context, int index, ReplyInfo item) {
+    return ReplyItemGrpc(
+      replyItem: item,
+      replyLevel: 1,
+      replyReply: (item, id) => throttleReplyReply(context, item, id),
+      onReply: controller.onReply,
+      onDelete: (item, subIndex) => controller.onRemove(index, item, subIndex),
+      upMid: controller.upMid,
+      onViewImage: hideFab,
+      onCheckReply: controller.onCheckReply,
+      onToggleTop: (item) => controller.onToggleTop(
+        item,
+        index,
+        controller.oid,
+        controller.replyType,
+      ),
+    );
+  }
+
+  Widget httpError({String? errMsg, VoidCallback? onReload}) {
+    return HttpError(
+      errMsg: errMsg,
+      onReload: controller.onReload,
+    );
+  }
+
+  void throttleReplyReply(BuildContext context, ReplyInfo replyItem, int? id) {
+    EasyThrottle.throttle(
+      'replyReply',
+      const Duration(milliseconds: 500),
+      () => replyReply(context, replyItem, id),
+    );
+  }
+
+  void replyReply(BuildContext context, ReplyInfo replyItem, int? id) {
+    Widget replyReplyPage({bool showBackBtn = true}) {
+      final child = ViewSafeArea(
+        left: showBackBtn,
+        right: showBackBtn,
+        child: VideoReplyReplyPanel(
+          enableSlide: false,
+          id: id,
+          oid: replyItem.oid.toInt(),
+          rpid: replyItem.id.toInt(),
+          isVideoDetail: !showBackBtn,
+          replyType: controller.replyType,
+          firstFloor: replyItem,
+          upMid: controller.upMid,
+        ),
+      );
+      if (showBackBtn) {
+        return SimpleScaffold(
+          appBar: AppBar(
+            title: const Text('评论详情'),
+            shape: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.1),
+              ),
+            ),
+          ),
+          body: child,
+        );
       }
-    });
+      return child;
+    }
+
+    if (!isPortrait) {
+      final scaffoldState = MiniScaffold.maybeOf(context);
+      if (scaffoldState != null) {
+        hideFab();
+        scaffoldState.showBottomSheet(
+          constraints: const BoxConstraints(),
+          (context) => replyReplyPage(showBackBtn: false),
+        );
+        return;
+      }
+    }
+
+    Get.to(
+      replyReplyPage,
+      routeName: 'dynamicDetail-Copy',
+      arguments: arguments,
+    );
   }
 
   Widget ratioWidget(double maxWidth) => IconButton(
@@ -268,10 +363,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
         ),
       ),
     ),
-    icon: Transform.rotate(
-      angle: pi / 2,
-      child: const Icon(Icons.splitscreen, size: 19),
-    ),
+    icon: const Icon(CustomIcons.splitscreen_rotate_90, size: 19),
   );
 
   FloatingActionButtonLocation get floatingActionButtonLocation =>
@@ -280,7 +372,10 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
       : const NoBottomPaddingFabLocation();
 
   Widget get fabButton => Padding(
-    padding: .only(bottom: padding.bottom + kFloatingActionButtonMargin),
+    padding: .only(
+      right: kFloatingActionButtonMargin + padding.right,
+      bottom: kFloatingActionButtonMargin + padding.bottom,
+    ),
     child: replyButton,
   );
 
@@ -293,6 +388,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
           null,
           oid: controller.oid,
           replyType: controller.replyType,
+          mentionItem: controller.mentionItem,
         );
       } catch (_) {}
     },

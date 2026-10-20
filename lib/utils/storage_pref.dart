@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'dart:math' show pow, sqrt;
 
+import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
+    show deviceTouchSlop;
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
@@ -9,6 +10,7 @@ import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/follow_order_type.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
+import 'package:PiliPlus/models/common/mine_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
@@ -25,12 +27,14 @@ import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/user/info.dart';
+import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart'
+    show kFullScreenSCWidth;
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
@@ -41,9 +45,9 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class Pref {
   static final Box _setting = GStorage.setting;
@@ -102,8 +106,10 @@ abstract final class Pref {
 
   static List<double> get springDescription => List<double>.from(
     _setting.get(SettingBoxKey.springDescription) ??
-        [0.5, 100.0, 2.2 * sqrt(50)], // [mass, stiffness, damping]
+        // duration: 0.3, bounce: 0.0
+        const [1.0, 438.64908449286037, 41.88790204786391],
   );
+  //   [0.5, 100.0, 2.2 * math.sqrt(50)], // [mass, stiffness, damping]
 
   static List<double> get speedList => List<double>.from(
     _video.get(
@@ -193,7 +199,9 @@ abstract final class Pref {
   static FullScreenMode get fullScreenMode {
     int? index = _setting.get(SettingBoxKey.fullScreenMode);
     if (index == null) {
-      final FullScreenMode mode = horizontalScreen && isTablet ? .none : .auto;
+      final FullScreenMode mode = horizontalScreen && DeviceUtils.isTablet
+          ? .none
+          : .auto;
       _setting.put(SettingBoxKey.fullScreenMode, mode.index);
       return mode;
     }
@@ -238,21 +246,25 @@ abstract final class Pref {
     defaultValue: AudioQuality.k192.code,
   );
 
-  static String get defaultDecode => _setting.get(
-    SettingBoxKey.defaultDecode,
-    defaultValue: VideoDecodeFormatType.AVC.codes.first,
-  );
+  static List<VideoDecodeFormatType> get preferCodecs {
+    final codecs = _setting.get(SettingBoxKey.preferCodecs);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return const <VideoDecodeFormatType>[.AVC, .AV1];
+  }
 
-  static String get secondDecode => _setting.get(
-    SettingBoxKey.secondDecode,
-    defaultValue: VideoDecodeFormatType.AV1.codes.first,
-  );
+  static List<VideoDecodeFormatType> get preferCodecsCellular {
+    final codecs = _setting.get(SettingBoxKey.preferCodecsCellular);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return preferCodecs;
+  }
 
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
-    defaultValue: Platform.isAndroid
-        ? HwDecType.autoSafe.hwdec
-        : HwDecType.auto.hwdec,
+    defaultValue: HwDecType.kHwdec,
   );
 
   static String get videoSync =>
@@ -301,9 +313,6 @@ abstract final class Pref {
 
   static double get blockLimit =>
       _setting.get(SettingBoxKey.blockLimit, defaultValue: 0.0);
-
-  static double get refreshDragPercentage =>
-      _setting.get(SettingBoxKey.refreshDragPercentage, defaultValue: 0.25);
 
   static double get refreshDisplacement => _setting.get(
     SettingBoxKey.refreshDisplacement,
@@ -384,12 +393,12 @@ abstract final class Pref {
 
   static bool get horizontalSeasonPanel => _setting.get(
     SettingBoxKey.horizontalSeasonPanel,
-    defaultValue: PlatformUtils.isDesktop,
+    defaultValue: horizontalScreen,
   );
 
   static bool get horizontalMemberPage => _setting.get(
     SettingBoxKey.horizontalMemberPage,
-    defaultValue: PlatformUtils.isDesktop,
+    defaultValue: horizontalScreen,
   );
 
   static int? get replyLengthLimit {
@@ -562,8 +571,26 @@ abstract final class Pref {
     defaultValue: LiveQuality.superHD.code,
   );
 
-  static int get appFontWeight =>
-      _setting.get(SettingBoxKey.appFontWeight, defaultValue: -1);
+  static FontWeight get appFontWeight {
+    // TODO: remove next 2 version
+    const appFontWeightV1 = 'appFontWeight';
+    final int? valV1 = _setting.get(appFontWeightV1);
+    if (valV1 != null) {
+      _setting.delete(appFontWeightV1);
+      if (valV1 == -1) {
+        return .normal;
+      } else {
+        _setting.put(SettingBoxKey.appFontWeightV2, valV1);
+        return .values[valV1];
+      }
+    }
+
+    final int? val = _setting.get(SettingBoxKey.appFontWeightV2);
+    if (val == null) {
+      return .normal;
+    }
+    return .values[val];
+  }
 
   static bool get enableDragSubtitle =>
       _setting.get(SettingBoxKey.enableDragSubtitle, defaultValue: false);
@@ -590,25 +617,19 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? pow(1024, 3);
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
 
-  static bool get horizontalScreen =>
-      _setting.get(SettingBoxKey.horizontalScreen) ?? isTablet;
-
-  static bool get isTablet {
-    bool isTablet;
-    if (Get.context != null) {
-      isTablet = Get.context!.isTablet;
-    } else {
-      final view = WidgetsBinding.instance.platformDispatcher.views.first;
-      final screenSize = view.physicalSize / view.devicePixelRatio;
-      isTablet = screenSize.shortestSide >= 600;
+  static bool get horizontalScreen {
+    bool? horizontalScreen = _setting.get(SettingBoxKey.horizontalScreen);
+    if (horizontalScreen == null) {
+      final isTablet = DeviceUtils.isTablet;
+      _setting.put(SettingBoxKey.horizontalScreen, isTablet);
+      return isTablet;
     }
-    _setting.put(SettingBoxKey.horizontalScreen, isTablet);
-    return isTablet;
+    return horizontalScreen;
   }
 
   static String get banWordForDyn =>
@@ -664,8 +685,10 @@ abstract final class Pref {
   static double get uiScale =>
       _setting.get(SettingBoxKey.uiScale, defaultValue: 1.0);
 
-  static bool get dynamicsWaterfallFlow =>
-      _setting.get(SettingBoxKey.dynamicsWaterfallFlow, defaultValue: true);
+  static bool get dynamicsWaterfallFlow => _setting.get(
+    SettingBoxKey.dynamicsWaterfallFlow,
+    defaultValue: horizontalScreen,
+  );
 
   static bool get hideTopBar => _setting.get(
     SettingBoxKey.hideTopBar,
@@ -713,9 +736,6 @@ abstract final class Pref {
       !Platform.isIOS &&
       _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
 
-  static bool get autoClearCache =>
-      _setting.get(SettingBoxKey.autoClearCache, defaultValue: false);
-
   static bool get enableSystemProxy =>
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
@@ -726,6 +746,12 @@ abstract final class Pref {
       ReplySortType.values[_setting.get(
         SettingBoxKey.replySortType,
         defaultValue: ReplySortType.hot.index,
+      )];
+
+  static ReplySortType get reply2SortType =>
+      ReplySortType.values[_setting.get(
+        SettingBoxKey.reply2SortType,
+        defaultValue: ReplySortType.time.index,
       )];
 
   static DynamicBadgeMode get dynamicBadgeMode =>
@@ -795,8 +821,66 @@ abstract final class Pref {
   static bool get enableLongShowControl =>
       _setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
 
-  static bool get expandBuffer =>
-      _setting.get(SettingBoxKey.expandBuffer, defaultValue: false);
+  static double get bufferSize =>
+      _setting.get(SettingBoxKey.bufferSize, defaultValue: 4.0);
+
+  static double get bufferSec =>
+      _setting.get(SettingBoxKey.bufferSec, defaultValue: 16.0);
+
+  /// 直播流前向缓冲区大小（MB），0 表示跟随 [bufferSize] 的两倍
+  static double get liveBufferSize =>
+      _setting.get(SettingBoxKey.liveBufferSize, defaultValue: 0.0);
+
+  /// 直播流缓冲时长上限（s），0 表示不限制
+  static double get liveBufferSec =>
+      _setting.get(SettingBoxKey.liveBufferSec, defaultValue: 0.0);
+
+  static Map<String, String> initBuffer([double playbackSpeed = 1.0]) {
+    final bufSec = Pref.bufferSec * playbackSpeed;
+    final bufSiz = (Pref.bufferSize * 0x100000).toStringAsFixed(0);
+    return {
+      'cache': 'yes',
+      'cache-secs': bufSec.toStringAsFixed(3),
+      'demuxer-hysteresis-secs': (bufSec / 1.5).toStringAsFixed(3),
+      'demuxer-max-bytes': bufSiz,
+      'demuxer-max-back-bytes': bufSiz,
+    };
+  }
+
+  /// 直播流无后向缓冲，全部给前向（mpv 的 --demuxer-max-bytes 与
+  /// --demuxer-max-back-bytes）。未单独设置时保持旧实现的默认值：
+  /// 前向缓冲为 [bufferSize] 的两倍且不限制时长。
+  static Map<String, String> initLiveBuffer() => buildLiveBuffer(
+    sizeMb: liveBufferSize,
+    sec: liveBufferSec,
+    fallbackSizeMb: bufferSize,
+  );
+
+  /// 构造直播流使用的 mpv 额外参数。
+  ///
+  /// [sizeMb] 为前向缓冲大小（MB），小于等于 0 时使用
+  /// [fallbackSizeMb]（缺省为 [bufferSize]）的两倍；
+  /// [sec] 为缓冲时长上限（s），小于等于 0 时不限制。
+  @visibleForTesting
+  static Map<String, String> buildLiveBuffer({
+    double sizeMb = 0,
+    double sec = 0,
+    double? fallbackSizeMb,
+  }) {
+    final effectiveSizeMb = sizeMb > 0
+        ? sizeMb
+        : (fallbackSizeMb ?? bufferSize) * 2;
+    final buffer = <String, String>{
+      'cache': 'yes',
+      'demuxer-max-bytes': (effectiveSizeMb * 0x100000).toStringAsFixed(0),
+      'demuxer-max-back-bytes': '0',
+    };
+    if (sec > 0) {
+      buffer['cache-secs'] = sec.toStringAsFixed(3);
+      buffer['demuxer-hysteresis-secs'] = (sec / 1.5).toStringAsFixed(3);
+    }
+    return buffer;
+  }
 
   static String get audioOutput => _setting.get(
     SettingBoxKey.audioOutput,
@@ -877,13 +961,25 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.silentDownImg, defaultValue: false);
 
   static String get buvid {
-    String? buvid = _localCache.get(LocalCacheKey.buvid);
-    if (buvid == null) {
-      buvid = LoginUtils.generateBuvid();
-      _localCache.put(LocalCacheKey.buvid, buvid);
+    String? value = _setting.get(SettingBoxKey.buvid);
+    if (value != null) return value;
+
+    value = _localCache.get(SettingBoxKey.buvid);
+    if (value != null) {
+      _setting
+          .put(SettingBoxKey.buvid, value)
+          .whenComplete(() => _localCache.delete(SettingBoxKey.buvid));
+      return value;
     }
-    return buvid;
+
+    if (value == null) {
+      buvid = value = LoginUtils.generateBuvid();
+    }
+
+    return value;
   }
+
+  static set buvid(String value) => _setting.put(SettingBoxKey.buvid, value);
 
   static bool get showMemberShop =>
       _setting.get(SettingBoxKey.showMemberShop, defaultValue: false);
@@ -893,6 +989,11 @@ abstract final class Pref {
         SettingBoxKey.superChatType,
         defaultValue: SuperChatType.valid.index,
       )];
+
+  static double get fullScreenSCWidth => _setting.get(
+    SettingBoxKey.fullScreenSCWidth,
+    defaultValue: kFullScreenSCWidth,
+  );
 
   static bool get minimizeOnExit =>
       _setting.get(SettingBoxKey.minimizeOnExit, defaultValue: true);
@@ -943,6 +1044,8 @@ abstract final class Pref {
 
   static String? get downloadPath => _setting.get(SettingBoxKey.downloadPath);
 
+  static String? get imageSavePath => _setting.get(SettingBoxKey.imageSavePath);
+
   static String? get liveCdnUrl => _setting.get(SettingBoxKey.liveCdnUrl);
 
   static bool get showBatteryLevel => _setting.get(
@@ -962,12 +1065,49 @@ abstract final class Pref {
   static bool get showDynDispute =>
       _setting.get(SettingBoxKey.showDynDispute, defaultValue: false);
 
-  static double get touchSlopH =>
-      _setting.get(SettingBoxKey.touchSlopH, defaultValue: 24.0);
+  static double get touchSlopH => _setting.get(
+    SettingBoxKey.touchSlopH,
+    defaultValue: deviceTouchSlop + 6.0,
+  );
 
   static bool get saveReply =>
       _setting.get(SettingBoxKey.saveReply, defaultValue: true);
 
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
+
+  static bool get removeSafeArea =>
+      _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+
+  static int get angleDegrees =>
+      _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
+
+  static double get playerVolume => // mobile
+      _setting.get(SettingBoxKey.playerVolume, defaultValue: 100.0);
+
+  static double get maxVolume => // desktop
+      _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
+
+  static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
+
+  static bool get enableDocProvider =>
+      _setting.get(SettingBoxKey.enableDocProvider, defaultValue: false);
+
+  static bool get enableEmoteTooltip =>
+      _setting.get(SettingBoxKey.enableEmoteTooltip, defaultValue: false);
+
+  static Set<MineTabType> get mineTabs =>
+      (_setting.get(SettingBoxKey.mineTabs) as List?)
+          ?.map<MineTabType>((index) => .values[index])
+          .toSet() ??
+      MineTabType.kDefault;
+
+  static bool get blockAtOnlyReply =>
+      _setting.get(SettingBoxKey.blockAtOnlyReply, defaultValue: false);
+
+  static int? get blockReplyAtCount =>
+      _setting.get(SettingBoxKey.blockReplyAtCount);
+
+  static bool get filterIntro =>
+      _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
 }

@@ -1,13 +1,12 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/space/space_cheese/item.dart';
 import 'package:PiliPlus/pages/member_cheese/controller.dart';
 import 'package:PiliPlus/pages/member_cheese/widgets/item.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberCheese extends StatefulWidget {
   const MemberCheese({
@@ -40,8 +39,9 @@ class _MemberCheeseState extends State<MemberCheese>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      isClampingScrollPhysics: true,
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(

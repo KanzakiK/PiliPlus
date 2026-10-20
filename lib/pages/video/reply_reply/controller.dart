@@ -1,7 +1,9 @@
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo, DetailListReply, Mode;
+    show ReplyInfo, DetailListReply;
 import 'package:PiliPlus/grpc/reply.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
+import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/common/reply_controller.dart';
 import 'package:PiliPlus/pages/video/reply_new/view.dart';
@@ -9,13 +11,12 @@ import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 class VideoReplyReplyController extends ReplyController
-    with GetSingleTickerProviderStateMixin {
+    with GetSingleTickerProviderStateMixin, ReplyLocateMixin {
   VideoReplyReplyController({
     required this.hasRoot,
     required this.id,
@@ -33,17 +34,11 @@ class VideoReplyReplyController extends ReplyController
   int replyType;
 
   bool hasRoot = false;
-  final Rx<ReplyInfo?> firstFloor = Rx(null);
+  final firstFloor = Rxn<ReplyInfo>();
 
   final index = RxnInt();
 
   final listController = ListController();
-
-  AnimationController? _controller;
-  AnimationController get animController => _controller ??= AnimationController(
-    duration: const Duration(milliseconds: 1000),
-    vsync: this,
-  );
 
   late final horizontalPreview = Pref.horizontalPreview;
 
@@ -51,9 +46,11 @@ class VideoReplyReplyController extends ReplyController
   dynamic get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
 
   @override
+  ReplySortType get prefSortType => Pref.reply2SortType;
+
+  @override
   void onInit() {
     super.onInit();
-    mode.value = Mode.MAIN_LIST_TIME;
     queryData();
   }
 
@@ -103,7 +100,7 @@ class VideoReplyReplyController extends ReplyController
   @pragma('vm:notify-debugger-on-exception')
   void jumpToItem(int index) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      animController.forward(from: 0);
+      colorAnimController.forward(from: 0);
       try {
         // ignore: invalid_use_of_visible_for_testing_member
         final offset = listController.getOffsetToReveal(index, 0.25);
@@ -132,18 +129,9 @@ class VideoReplyReplyController extends ReplyController
           oid: oid,
           root: rpid,
           rpid: id ?? 0,
-          mode: mode.value,
+          mode: mode,
           offset: paginationReply?.nextOffset,
         );
-
-  @override
-  void queryBySort() {
-    if (isLoading) return;
-    mode.value = mode.value == Mode.MAIN_LIST_HOT
-        ? Mode.MAIN_LIST_TIME
-        : Mode.MAIN_LIST_HOT;
-    onReload();
-  }
 
   @override
   Future<void> onReload() {
@@ -159,6 +147,7 @@ class VideoReplyReplyController extends ReplyController
     int? oid,
     int? replyType,
     int? index,
+    MentionItem? mentionItem,
   }) {
     assert(replyItem != null && index != null);
 
@@ -207,12 +196,5 @@ class VideoReplyReplyController extends ReplyController
             }
           }
         });
-  }
-
-  @override
-  void onClose() {
-    _controller?.dispose();
-    _controller = null;
-    super.dispose();
   }
 }

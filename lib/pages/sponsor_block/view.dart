@@ -1,25 +1,26 @@
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/constants.dart';
-import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/sponsor_block.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models_new/sponsor_block/user_info.dart';
 import 'package:PiliPlus/pages/setting/slide_color_picker.dart';
+import 'package:PiliPlus/utils/accounts/account_manager/account_mgr.dart';
+import 'package:PiliPlus/utils/filtering_text.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SponsorBlockPage extends StatefulWidget {
   const SponsorBlockPage({super.key});
@@ -83,15 +84,11 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             builder: (_) => AlertDialog(
               title: Text('最短片段时长', style: titleStyle),
               content: TextFormField(
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: const .numberWithOptions(decimal: true),
                 controller: _textController,
                 autofocus: true,
                 decoration: const InputDecoration(suffixText: 's'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
-                ],
+                inputFormatters: FilteringText.decimal,
               ),
               actions: [
                 TextButton(
@@ -332,7 +329,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = HttpString.sponsorBlockBaseUrl;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     (context as Element).markNeedsBuild();
                   },
                   child: const Text('重置'),
@@ -351,7 +348,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = _textController.text;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     _checkServerStatus();
                     _getUserInfo();
                     (context as Element).markNeedsBuild();
@@ -483,10 +480,9 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
       ),
     );
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(title: const Text('空降助手')),
-      body: customScrollView(
+      body: CustomScrollView(
         slivers: [
           dividerL,
           SliverToBoxAdapter(child: _serverStatusItem(theme, titleStyle)),

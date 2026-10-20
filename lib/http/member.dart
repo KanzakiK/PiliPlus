@@ -471,7 +471,7 @@ abstract final class MemberHttp {
       try {
         DynamicsDataModel data = DynamicsDataModel.fromJson(res.data['data']);
         if (data.loadNext == true) {
-          return memberDynamic(offset: data.offset, mid: mid);
+          return await memberDynamic(offset: data.offset, mid: mid);
         }
         return Success(data);
       } catch (e, s) {
@@ -568,6 +568,7 @@ abstract final class MemberHttp {
     int? tagid,
     int? pn,
     int ps = 20,
+    String orderType = '', // ''=>最近关注，'attention'=>最常访问
   }) async {
     final res = await Request().get(
       Api.followUpGroup,
@@ -576,6 +577,7 @@ abstract final class MemberHttp {
         'tagid': tagid,
         'pn': pn,
         'ps': ps,
+        'order_type': orderType,
       },
     );
     if (res.data['code'] == 0) {
@@ -593,7 +595,7 @@ abstract final class MemberHttp {
     }
   }
 
-  static Future<LoadingState<void>> createFollowTag(Object tagName) async {
+  static Future<LoadingState<int>> createFollowTag(String tagName) async {
     final res = await Request().post(
       Api.createFollowTag,
       queryParameters: {
@@ -607,7 +609,7 @@ abstract final class MemberHttp {
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
     if (res.data['code'] == 0) {
-      return const Success(null);
+      return Success(res.data['data']['tagid']);
     } else {
       return Error(res.data['message']);
     }

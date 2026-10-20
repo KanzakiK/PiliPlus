@@ -17,8 +17,8 @@
 
 import 'dart:math' show pi;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show SemanticsConfiguration;
+import 'package:material_ui/material_ui.dart';
 
 ///
 /// created by dom on 2026/02/14
@@ -55,10 +55,9 @@ class LoadingIndicator extends LeafRenderObjectWidget {
 
 class RenderLoadingIndicator extends RenderBox {
   RenderLoadingIndicator({
-    required double preferredSize,
-    required double progress,
-  }) : _preferredSize = preferredSize,
-       _progress = progress;
+    required this._preferredSize,
+    required this._progress,
+  });
 
   double _preferredSize;
   double get preferredSize => _preferredSize;

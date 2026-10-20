@@ -1,7 +1,7 @@
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PBadge extends StatelessWidget {
   final String? text;
@@ -82,26 +82,21 @@ class PBadge extends StatelessWidget {
         color = theme.onSurfaceVariant;
     }
 
-    late EdgeInsets paddingStyle = const EdgeInsets.symmetric(
-      vertical: 2,
-      horizontal: 3,
-    );
-    BorderRadius br = size == PBadgeSize.small
-        ? const BorderRadius.all(Radius.circular(3))
-        : const BorderRadius.all(Radius.circular(4));
+    late EdgeInsets paddingStyle = const .symmetric(vertical: 2, horizontal: 3);
+    final BorderRadius br = size == .small
+        ? const .all(.circular(3))
+        : const .all(.circular(4));
 
     Widget content = Container(
       padding: padding ?? paddingStyle,
       decoration: BoxDecoration(
         borderRadius: br,
         color: bgColor,
-        border: Border.all(color: borderColor),
+        border: .all(color: borderColor),
       ),
       child: Text(
         text!,
-        textScaler: textScaleFactor != null
-            ? TextScaler.linear(textScaleFactor!)
-            : null,
+        textScaler: textScaleFactor != null ? .linear(textScaleFactor!) : null,
         style: TextStyle(
           height: 1,
           fontSize: fontSize,

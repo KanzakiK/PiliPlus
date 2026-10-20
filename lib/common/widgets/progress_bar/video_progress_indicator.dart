@@ -25,7 +25,7 @@ class VideoProgressIndicator extends LeafRenderObjectWidget {
     this.radius = 10,
     this.height = 4,
     required this.progress,
-  }) : assert(progress >= 0 && progress <= 1);
+  });
 
   final Color color;
   final Color backgroundColor;
@@ -60,16 +60,12 @@ class VideoProgressIndicator extends LeafRenderObjectWidget {
 
 class RenderProgressBar extends RenderBox {
   RenderProgressBar({
-    required Color color,
-    required Color backgroundColor,
-    required double radius,
-    required double height,
-    required double progress,
-  }) : _color = color,
-       _backgroundColor = backgroundColor,
-       _radius = radius,
-       _height = height,
-       _progress = progress;
+    required this._color,
+    required this._backgroundColor,
+    required this._radius,
+    required this._height,
+    required this._progress,
+  });
 
   Color _color;
   Color get color => _color;
@@ -100,7 +96,7 @@ class RenderProgressBar extends RenderBox {
   set radius(double value) {
     if (_radius == value) return;
     _radius = value;
-    markNeedsLayout();
+    markNeedsPaint();
   }
 
   double _height;
@@ -108,12 +104,12 @@ class RenderProgressBar extends RenderBox {
   set height(double value) {
     if (_height == value) return;
     _height = value;
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   @override
   void performLayout() {
-    size = constraints.constrainDimensions(constraints.maxWidth, _radius);
+    size = constraints.constrainDimensions(constraints.maxWidth, _height);
   }
 
   @override
@@ -122,24 +118,30 @@ class RenderProgressBar extends RenderBox {
     final canvas = context.canvas
       ..save()
       ..translate(offset.dx, offset.dy);
+
     final paint = Paint()..style = .fill;
 
-    canvas.clipRect(
-      .fromLTRB(0, size.height - height, size.width, size.height),
+    final Radius radius = .circular(_radius);
+    final rect = Rect.fromLTWH(
+      0,
+      -(_radius - size.height),
+      size.width,
+      _radius,
     );
-
-    final radius = Radius.circular(_radius);
-    final rect = Rect.fromLTRB(0, 0, size.width, size.height);
     final rrect = RRect.fromRectAndCorners(
       rect,
       bottomLeft: radius,
       bottomRight: radius,
     );
 
-    if (progress == 0) {
-      canvas.drawRRect(rrect, paint..color = _backgroundColor);
-    } else if (progress == 1) {
-      canvas.drawRRect(rrect, paint..color = _color);
+    if (progress <= 0) {
+      canvas
+        ..clipRect(Offset.zero & size)
+        ..drawRRect(rrect, paint..color = _backgroundColor);
+    } else if (progress >= 1) {
+      canvas
+        ..clipRect(Offset.zero & size)
+        ..drawRRect(rrect, paint..color = _color);
     } else {
       final w = size.width * progress;
       final left = Rect.fromLTRB(0, 0, w, size.height);

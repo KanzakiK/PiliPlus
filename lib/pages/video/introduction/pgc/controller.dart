@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' show max;
 
+import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -16,21 +17,23 @@ import 'package:PiliPlus/models_new/video/video_detail/episode.dart'
 import 'package:PiliPlus/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/dynamics_repost/view.dart';
-import 'package:PiliPlus/pages/video/pay_coins/view.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/android/android_helper.dart';
+import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PgcIntroController extends CommonIntroController {
   int? seasonId;
@@ -41,7 +44,15 @@ class PgcIntroController extends CommonIntroController {
       : '追剧';
 
   late final bool isPgc;
-  late final PgcInfoModel pgcItem;
+  late PgcInfoModel pgcItem;
+
+  ScrollController? _seasonController;
+  ScrollController seasonController(int index) {
+    if (_seasonController != null) return _seasonController!;
+    return _seasonController = ScrollController(
+      initialScrollOffset: index * 150,
+    );
+  }
 
   @override
   (Object, int) get getFavRidType => (epId!, 24);
@@ -63,6 +74,10 @@ class PgcIntroController extends CommonIntroController {
 
     super.onInit();
 
+    _onGetPgcInfo();
+  }
+
+  void _onGetPgcInfo() {
     if (isPgc) {
       if (isLogin) {
         queryIsFollowed();
@@ -113,86 +128,54 @@ class PgcIntroController extends CommonIntroController {
     }
   }
 
-  // 投币
   @override
-  void actionCoinVideo() {
-    if (!isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-
-    if (coinNum.value >= 2) {
-      SmartDialog.showToast('达到投币上限啦~');
-      return;
-    }
-
-    if (GlobalData().coins != null && GlobalData().coins! < 1) {
-      SmartDialog.showToast('硬币不足');
-      // return;
-    }
-
-    PayCoinsPage.toPayCoinsPage(
-      onPayCoin: coinVideo,
-      hasCoin: coinNum.value == 1,
-    );
-  }
+  int get copyright => 1;
 
   // 分享视频
   @override
   void actionShareVideo(BuildContext context) {
     String videoUrl =
-        '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos}';
+        '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos(false)}';
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              dense: true,
-              title: const Text(
-                '复制链接',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
+        children: [
+          DialogOption(
+            child: const Text('复制链接', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              Utils.copyText(videoUrl);
+            },
+          ),
+          DialogOption(
+            child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              PiliAndroidHelper.openUrl(videoUrl);
+            },
+          ),
+          if (PlatformUtils.isMobile)
+            DialogOption(
+              child: const Text('分享视频', style: TextStyle(fontSize: 14)),
+              onPressed: () {
+                final item = pgcItem.episodes?.firstWhereOrNull(
+                  (item) => item.epId == epId,
+                );
                 Get.back();
-                Utils.copyText(videoUrl);
+                ShareUtils.shareText(
+                  '${pgcItem.title}${item != null ? ' ${item.showTitle}' : ''}'
+                  ' - $videoUrl',
+                );
               },
             ),
-            ListTile(
-              dense: true,
-              title: const Text(
-                '其它app打开',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
+          if (isLogin)
+            DialogOption(
+              child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
+              onPressed: () {
                 Get.back();
-                PageUtils.launchURL(videoUrl);
-              },
-            ),
-            if (PlatformUtils.isMobile)
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '分享视频',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Get.back();
-                  Utils.shareText(videoUrl);
-                },
-              ),
-            ListTile(
-              dense: true,
-              title: const Text(
-                '分享至动态',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
-                Get.back();
-                EpisodeItem? item = pgcItem.episodes?.firstWhereOrNull(
+                final item = pgcItem.episodes?.firstWhereOrNull(
                   (item) => item.epId == epId,
                 );
                 showModalBottomSheet(
@@ -201,15 +184,15 @@ class PgcIntroController extends CommonIntroController {
                   useSafeArea: true,
                   builder: (context) => RepostPanel(
                     rid: epId,
-                    /**
-                         *  1：番剧 // 4097
-                            2：电影 // 4098
-                            3：纪录片 // 4101
-                            4：国创 // 4100
-                            5：电视剧 // 4099
-                            6：漫画
-                            7：综艺 // 4099
-                         */
+                    /*
+                    1：番剧 // 4097
+                    2：电影 // 4098
+                    3：纪录片 // 4101
+                    4：国创 // 4100
+                    5：电视剧 // 4099
+                    6：漫画
+                    7：综艺 // 4099
+                  */
                     dynType: switch (pgcItem.type) {
                       1 => 4097,
                       2 => 4098,
@@ -222,20 +205,24 @@ class PgcIntroController extends CommonIntroController {
                     title:
                         '${pgcItem.title}${item != null ? '\n${item.showTitle}' : ''}',
                     uname: '',
+                    replyInfo: (
+                      oid: videoDetailCtr.aid,
+                      replyType: videoDetailCtr.videoType.replyType,
+                    ),
                   ),
                 );
               },
             ),
-            ListTile(
-              dense: true,
-              title: const Text(
+          if (isLogin)
+            DialogOption(
+              child: const Text(
                 '分享至消息',
                 style: TextStyle(fontSize: 14),
               ),
-              onTap: () {
+              onPressed: () {
                 Get.back();
                 try {
-                  EpisodeItem item = pgcItem.episodes!.firstWhere(
+                  final item = pgcItem.episodes!.firstWhere(
                     (item) => item.epId == epId,
                   );
                   final title =
@@ -250,16 +237,7 @@ class PgcIntroController extends CommonIntroController {
                       "headline": title,
                       "source": 16,
                       "thumb": item.cover,
-                      "source_desc": switch (pgcItem.type) {
-                        1 => '番剧',
-                        2 => '电影',
-                        3 => '纪录片',
-                        4 => '国创',
-                        5 => '电视剧',
-                        6 => '漫画',
-                        7 => '综艺',
-                        _ => null,
-                      },
+                      "source_desc": BiliUtils.pgcType2Label(pgcItem.type),
                     },
                   );
                 } catch (e) {
@@ -267,8 +245,7 @@ class PgcIntroController extends CommonIntroController {
                 }
               },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -400,8 +377,6 @@ class PgcIntroController extends CommonIntroController {
       if (nextIndex >= episodes.length) {
         if (playRepeat == PlayRepeat.listCycle) {
           nextIndex = 0;
-        } else if (playRepeat == PlayRepeat.autoPlayRelated) {
-          return false;
         } else {
           return false;
         }
@@ -504,10 +479,48 @@ class PgcIntroController extends CommonIntroController {
         ? await FavHttp.delFavPugv(seasonId!)
         : await FavHttp.addFavPugv(seasonId!);
     if (res.isSuccess) {
-      this.isFav.value = !isFav;
+      this.isFav.toggle();
       SmartDialog.showToast('${isFav ? '取消' : ''}收藏成功');
     } else {
       res.toast();
     }
+  }
+
+  bool _changingSeason = false;
+  bool get changingSeason => _changingSeason;
+
+  Future<bool> changeSeason(int seasonId) async {
+    if (_changingSeason) return false;
+    _changingSeason = true;
+    SmartDialog.showLoading();
+    try {
+      final res = await SearchHttp.pgcInfo(seasonId: seasonId, epId: epId);
+      if (res case Success(:final response)) {
+        final episodes = response.episodes;
+        if (episodes != null && episodes.isNotEmpty) {
+          pgcItem = response;
+          this.seasonId = seasonId;
+          onChangeEpisode(episodes.first);
+          _onGetPgcInfo();
+          return true;
+        } else {
+          SmartDialog.showToast('剧集为空');
+        }
+      } else {
+        res.toast();
+      }
+    } catch (_) {
+    } finally {
+      SmartDialog.dismiss();
+      _changingSeason = false;
+    }
+    return false;
+  }
+
+  @override
+  void onClose() {
+    _seasonController?.dispose();
+    _seasonController = null;
+    super.onClose();
   }
 }

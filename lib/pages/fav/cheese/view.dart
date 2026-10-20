@@ -1,14 +1,13 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/space/space_cheese/item.dart';
 import 'package:PiliPlus/pages/fav/cheese/controller.dart';
 import 'package:PiliPlus/pages/member_cheese/widgets/item.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavCheesePage extends StatefulWidget {
   const FavCheesePage({super.key});
@@ -30,7 +29,7 @@ class _FavCheesePageState extends State<FavCheesePage>
     final ThemeData theme = Theme.of(context);
     return refreshIndicator(
       onRefresh: _controller.onRefresh,
-      child: customScrollView(
+      child: CustomScrollView(
         controller: _controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DisabledIcon extends SingleChildRenderObjectWidget {
   const DisabledIcon({
@@ -50,16 +50,12 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 
 class RenderMaskedIcon extends RenderProxyBox {
   RenderMaskedIcon({
-    required bool disable,
-    required double iconSize,
-    required Color color,
-    required StrokeCap strokeCap,
-    required double lineLengthScale,
-  }) : _disable = disable,
-       _iconSize = iconSize,
-       _color = color,
-       _strokeCap = strokeCap,
-       _lineLengthScale = lineLengthScale;
+    required this._disable,
+    required this._iconSize,
+    required this._color,
+    required this._strokeCap,
+    required this._lineLengthScale,
+  });
 
   bool _disable;
   bool get disable => _disable;
