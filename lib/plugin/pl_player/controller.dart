@@ -462,6 +462,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final uiScale = Pref.uiScale;
 
   late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
+  late final bool autoEnterFullScreenInApp = Pref.autoEnterFullScreenInApp;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
   late final bool autoPlayEnable = Pref.autoPlayEnable;
   late final bool enableVerticalExpand = Pref.enableVerticalExpand;
@@ -768,7 +769,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       dataStatus.value = .loaded;
 
       if (autoFullScreenFlag && autoEnterFullScreen) {
-        triggerFullScreen(status: true);
+        triggerFullScreen(
+          status: true,
+          inAppFullScreen: autoEnterFullScreenInApp,
+        );
       }
 
       await _initializePlayer();

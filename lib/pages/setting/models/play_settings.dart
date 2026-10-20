@@ -299,6 +299,14 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableAutoEnter,
     defaultVal: false,
   ),
+  if (PlatformUtils.isDesktop)
+    const SwitchModel(
+      title: '自动全屏时使用应用内全屏',
+      subtitle: '播放开始时只让视频铺满窗口，不进入系统全屏（等同右键视频区）',
+      leading: Icon(Icons.picture_in_picture_outlined),
+      setKey: SettingBoxKey.enableAutoEnterInApp,
+      defaultVal: false,
+    ),
   const SwitchModel(
     title: '自动退出全屏',
     subtitle: '视频结束播放时退出全屏',

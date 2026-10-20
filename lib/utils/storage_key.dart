@@ -23,6 +23,7 @@ abstract final class SettingBoxKey {
       autosync = 'autosync',
       p1080 = 'p1080',
       enableAutoEnter = 'enableAutoEnter',
+      enableAutoEnterInApp = 'enableAutoEnterInApp',
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       superChatType = 'superChatType',
